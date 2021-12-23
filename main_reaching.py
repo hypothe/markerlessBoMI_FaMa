@@ -123,7 +123,11 @@ class MainApplication(tk.Frame):
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
-        
+        self.check_mouse = BooleanVar()
+        self.check_m = Checkbutton(win, text="Mouse Control",
+                                  variable=self.check_forefinger)
+        self.check_m.config(font=("Arial", self.font_size))
+        self.check_m.grid(row=0, column=5, padx=(0, 20), pady=30, sticky='w')
 
         #############################################################
 
