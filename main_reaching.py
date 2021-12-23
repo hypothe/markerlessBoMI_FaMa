@@ -11,7 +11,7 @@ import queue
 import cv2
 # For GUI
 import tkinter as tk
-from tkinter import Label, Button, BooleanVar, Checkbutton, Text
+from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Radiobutton
 # For pygame
 import pygame
 # For reaching task
@@ -96,6 +96,8 @@ class MainApplication(tk.Frame):
         self.btn_map.config(font=("Arial", self.font_size))
         self.btn_map.grid(row=2, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
+        #self.check_alg = BooleanVar()
+
         self.check_pca = BooleanVar(value=True)
         self.check_pca1 = Checkbutton(win, text="PCA", variable=self.check_pca)
         self.check_pca1.config(font=("Arial", self.font_size))
@@ -127,6 +129,10 @@ class MainApplication(tk.Frame):
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
+        self.check_vae = BooleanVar()
+        self.check_vae1 = Checkbutton(win, text="Mouse Control", variable=self.check_vae)
+        self.check_vae1.config(font=("Arial", self.font_size))
+        self.check_vae1.grid(row=5, column=1, pady=(20, 30), sticky='w')
 
         #############################################################
 
@@ -216,6 +222,7 @@ class MainApplication(tk.Frame):
             start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode)
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
         else:
             self.w = popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
@@ -339,7 +346,10 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
     :return:
     """
     # Create object of openCV and Reaching (needed for terminating mediapipe thread)
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+    cv2.destroyAllWindows()
+
     r = Reaching()
 
     # The clock will be used to control how fast the screen updates. Stopwatch to count calibration time elapsed
@@ -377,10 +387,23 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
 
     print("main thread: Starting calibration...")
 
+    if not cap.isOpened():
+        raise IOError("Cannot open webcam")
+    wind_name = "My cam"
+    cv2.namedWindow(wind_name)
+
     while not r.is_terminated:
+
+        ret_val, frame = cap.read()
+        #frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        frame = cv2.flip(frame, 1)
+        cv2.imshow(wind_name, frame)
+        if cv2.waitKey(1) == 27:
+            break  # esc to quit
 
         if timer_calib.elapsed_time > calib_duration:
             r.is_terminated = True
+            cv2.destroyAllWindows()
 
         # get current value of body
         body_calib.append(np.copy(body))
@@ -943,7 +966,6 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
             clock.tick(50)
 
     # Once we have exited the main program loop, stop the game engine and release the capture
-    pygame.quit()
     print("game engine object released in practice.")
     # pose.close()
     holistic.close()
