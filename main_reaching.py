@@ -26,6 +26,10 @@ import mediapipe as mp
 # For training pca/autoencoder
 from compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_vaf
 
+# Custom packages
+import ctypes
+import math
+
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
 
@@ -123,11 +127,6 @@ class MainApplication(tk.Frame):
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
-        self.check_mouse = BooleanVar()
-        self.check_m = Checkbutton(win, text="Mouse Control",
-                                  variable=self.check_forefinger)
-        self.check_m.config(font=("Arial", self.font_size))
-        self.check_m.grid(row=0, column=5, padx=(0, 20), pady=30, sticky='w')
 
         #############################################################
 
@@ -1066,8 +1065,11 @@ if __name__ == "__main__":
     win = tk.Tk()
     win.title("BoMI Settings")
 
-    window_width = 1200
-    window_height = 520
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+    window_width = math.ceil(screensize[0] / 1.2)
+    window_height = math.ceil(screensize[1] / 1.2)
 
     screen_width = win.winfo_screenwidth()
     screen_height = win.winfo_screenheight()
