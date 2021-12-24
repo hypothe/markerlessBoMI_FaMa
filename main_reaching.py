@@ -96,7 +96,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 30000 #30000
+        self.calib_duration = 10000 #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(win, text='Calibration time: ')
@@ -193,7 +193,11 @@ class MainApplication(tk.Frame):
         # start calibration dance - collect webcam data
         self.w = popupWindow(self.master, "You will now start calibration.")
         self.master.wait_window(self.w.top)
-        compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints)
+        # This variable helps to check which joint to display
+        self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
+                                self.check_forefinger.get(), self.check_fingers.get()]
+        compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
+                            self.check_summary)
         self.btn_map["state"] = "normal"
 
     def train_map(self):
@@ -359,7 +363,7 @@ class popupWindow(object):
         self.top.destroy()
 
 
-def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
+def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, active_joints):
     """
     function called to collect calibration data from webcam
     :param drPath: path to save calibration file
@@ -369,7 +373,8 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
     """
     # Create object of openCV and Reaching (needed for terminating mediapipe thread)
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
+    print("CANEDI")
+    print(active_joints)
     cv2.destroyAllWindows()
 
     r = Reaching()
@@ -435,31 +440,34 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
             # Draw landmark annotation on the image.
             frame.flags.writeable = True
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            mp_drawing.draw_landmarks(
-                frame,
-                results.face_landmarks,
-                mp_holistic.FACEMESH_CONTOURS,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles
-                    .get_default_face_mesh_contours_style())
-            mp_drawing.draw_landmarks(
-                frame,
-                results.pose_landmarks,
-                mp_holistic.POSE_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing_styles
-                    .get_default_pose_landmarks_style())
-            mp_drawing.draw_landmarks(
-                frame,
-                results.left_hand_landmarks,
-                mp_holistic.HAND_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing_styles
-                    .get_default_pose_landmarks_style())
-            mp_drawing.draw_landmarks(
-                frame,
-                results.right_hand_landmarks,
-                mp_holistic.HAND_CONNECTIONS,
-                landmark_drawing_spec=mp_drawing_styles
-                    .get_default_pose_landmarks_style())
+            if active_joints[1] == True:
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.face_landmarks,
+                    mp_holistic.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                        .get_default_face_mesh_contours_style())
+            if (active_joints[0] == True) or (active_joints[2] == True):
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.pose_landmarks,
+                    mp_holistic.POSE_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
+            if (active_joints[3] == True) or (active_joints[4] == True):
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.left_hand_landmarks,
+                    mp_holistic.HAND_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.right_hand_landmarks,
+                    mp_holistic.HAND_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
             # Flip the image horizontally for a selfie-view display.
             cv2.imshow(wind_name, cv2.flip(frame, 1))
 
