@@ -111,27 +111,20 @@ class MainApplication(tk.Frame):
 
         self.check_alg = IntVar()
 
-        self.check_pca = BooleanVar()
+        # self.check_pca = BooleanVar()
         self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0)
         self.check_pca1.config(font=("Arial", self.font_size))
         self.check_pca1.grid(row=2, column=2, padx=(0, 20), pady=(20, 30), sticky='w')
 
-        self.check_ae = BooleanVar()
+        # self.check_ae = BooleanVar()
         self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1)
         self.check_ae1.config(font=("Arial", self.font_size))
         self.check_ae1.grid(row=2, column=3, padx=(0, 20), pady=(20, 30), sticky='w')
 
-        self.check_vae = BooleanVar()
+        # self.check_vae = BooleanVar()
         self.check_vae1 = Radiobutton(win, text="Variational AE", variable=self.check_alg, value=2)
         self.check_vae1.config(font=("Arial", self.font_size))
         self.check_vae1.grid(row=2, column=4, pady=(20, 30), sticky='w')
-
-        if self.check_alg.get() == 0:
-            self.check_pca = BooleanVar(value=True)
-        elif self.check_alg.get() == 1:
-            self.check_ae = BooleanVar(value=True)
-        elif self.check_alg.get() == 2:
-            self.check_vae = BooleanVar(value=True)
 
         self.btn_custom = Button(parent, text="Customization", command=self.customization)
         self.btn_custom["state"] = "disabled"
@@ -205,15 +198,19 @@ class MainApplication(tk.Frame):
         if os.path.isfile(self.calibPath + "Calib.txt"):
             self.w = popupWindow(self.master, "You will now train BoMI map")
             self.master.wait_window(self.w.top)
-            if self.check_pca.get():
+            # if self.check_pca.get():
+            print(self.check_alg.get())
+            if self.check_alg.get() == 0:
                 self.drPath = self.calibPath + 'PCA/'
                 train_pca(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'pca'
-            elif self.check_ae.get():
+            # elif self.check_ae.get():
+            elif self.check_alg.get() == 1:
                 self.drPath = self.calibPath + 'AE/'
                 train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
-            elif self.check_vae.get():
+            #elif self.check_vae.get():
+            elif self.check_alg.get() == 2:
                 self.drPath = self.calibPath + 'AE/'
                 train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
