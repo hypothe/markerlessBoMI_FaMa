@@ -17,8 +17,8 @@ RUN git clone https://github.com/hypothe/markerlessBoMI_FaMa.git ${WS}
 # necessary, somehow, for the xserver called by pyautogui
 ENV XAUTHORITY=${HOME}/.Xauthority
 RUN touch ~/.Xauthority \
-	&& echo "xauth generate :0 . trusted && \
-			xauth add ${HOST}:0 . $(xxd -l 16 -p /dev/urandom)" >> ${HOME}/.bashrc
+	&& echo 'xauth generate :0 . trusted && \
+			xauth add ${HOST}:0 . $(xxd -l 16 -p /dev/urandom)' >> ${HOME}/.bashrc
 
 WORKDIR ${WS}
 RUN pip install --upgrade pip \
