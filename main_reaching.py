@@ -11,7 +11,7 @@ import queue
 import cv2
 # For GUI
 import tkinter as tk
-from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Radiobutton
+from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Radiobutton, IntVar
 # For pygame
 import pygame
 # For reaching task
@@ -29,9 +29,21 @@ from compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_va
 # Custom packages
 import ctypes
 import math
+import mouse
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
+# TODO
+# calib_duration to be set back to 30000
+
+def sigmoid(x, L=1, k=1, x0=0, offset=0):
+  return offset + L / (1 + math.exp(k*(x0-x)))
+
+def doubleSigmoid(x):
+    if x < 0:
+        return sigmoid(x, L=0.5, k=12, x0=-0.5, offset=-0.5)
+    else:
+        return sigmoid(x, L=0.5, k=12, x0=0.5, offset=0.)
 
 class MainApplication(tk.Frame):
     """
@@ -47,6 +59,7 @@ class MainApplication(tk.Frame):
         self.joints = np.zeros((5, 1))
         self.dr_mode = 'ae'
         self.font_size = 18
+        self.n_map_component = 2
 
         self.btn_num_joints = Button(parent, text="Select Joints", command=self.select_joints)
         self.btn_num_joints.config(font=("Arial", self.font_size))
@@ -83,7 +96,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 30000
+        self.calib_duration = 30000 #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(win, text='Calibration time: ')
@@ -96,22 +109,29 @@ class MainApplication(tk.Frame):
         self.btn_map.config(font=("Arial", self.font_size))
         self.btn_map.grid(row=2, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
-        #self.check_alg = BooleanVar()
+        self.check_alg = IntVar()
 
-        self.check_pca = BooleanVar(value=True)
-        self.check_pca1 = Checkbutton(win, text="PCA", variable=self.check_pca)
+        self.check_pca = BooleanVar()
+        self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0)
         self.check_pca1.config(font=("Arial", self.font_size))
         self.check_pca1.grid(row=2, column=2, padx=(0, 20), pady=(20, 30), sticky='w')
 
         self.check_ae = BooleanVar()
-        self.check_ae1 = Checkbutton(win, text="AE", variable=self.check_ae)
+        self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1)
         self.check_ae1.config(font=("Arial", self.font_size))
         self.check_ae1.grid(row=2, column=3, padx=(0, 20), pady=(20, 30), sticky='w')
 
         self.check_vae = BooleanVar()
-        self.check_vae1 = Checkbutton(win, text="Variational AE", variable=self.check_vae)
+        self.check_vae1 = Radiobutton(win, text="Variational AE", variable=self.check_alg, value=2)
         self.check_vae1.config(font=("Arial", self.font_size))
         self.check_vae1.grid(row=2, column=4, pady=(20, 30), sticky='w')
+
+        if self.check_alg.get() == 0:
+            self.check_pca = BooleanVar(value=True)
+        elif self.check_alg.get() == 1:
+            self.check_ae = BooleanVar(value=True)
+        elif self.check_alg.get() == 2:
+            self.check_vae = BooleanVar(value=True)
 
         self.btn_custom = Button(parent, text="Customization", command=self.customization)
         self.btn_custom["state"] = "disabled"
@@ -129,10 +149,10 @@ class MainApplication(tk.Frame):
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
-        self.check_vae = BooleanVar()
-        self.check_vae1 = Checkbutton(win, text="Mouse Control", variable=self.check_vae)
-        self.check_vae1.config(font=("Arial", self.font_size))
-        self.check_vae1.grid(row=5, column=1, pady=(20, 30), sticky='w')
+        self.check_mouse = BooleanVar()
+        self.check_m1 = Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
+        self.check_m1.config(font=("Arial", self.font_size))
+        self.check_m1.grid(row=5, column=1, pady=(20, 30), sticky='w')
 
         #############################################################
 
@@ -183,15 +203,15 @@ class MainApplication(tk.Frame):
             self.master.wait_window(self.w.top)
             if self.check_pca.get():
                 self.drPath = self.calibPath + 'PCA/'
-                train_pca(self.calibPath, self.drPath)
+                train_pca(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'pca'
             elif self.check_ae.get():
                 self.drPath = self.calibPath + 'AE/'
-                train_ae(self.calibPath, self.drPath)
+                train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
             elif self.check_vae.get():
                 self.drPath = self.calibPath + 'AE/'
-                train_ae(self.calibPath, self.drPath)
+                train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
             self.btn_custom["state"] = "normal"
         else:
@@ -219,9 +239,11 @@ class MainApplication(tk.Frame):
             # open pygame and start reaching task
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode)
+            start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
+                            self.check_mouse.get())
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
         else:
             self.w = popupWindow(self.master, "Perform customization first.")
@@ -389,50 +411,93 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
 
     if not cap.isOpened():
         raise IOError("Cannot open webcam")
-    wind_name = "My cam"
+    wind_name = "Group 12 cam"
     cv2.namedWindow(wind_name)
 
-    while not r.is_terminated:
+    mp_drawing = mp.solutions.drawing_utils
+    mp_drawing_styles = mp.solutions.drawing_styles
 
-        ret_val, frame = cap.read()
-        #frame = cv2.resize(frame, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-        frame = cv2.flip(frame, 1)
-        cv2.imshow(wind_name, frame)
-        if cv2.waitKey(1) == 27:
-            break  # esc to quit
+    with mp_holistic.Holistic(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5) as holistic:
 
-        if timer_calib.elapsed_time > calib_duration:
-            r.is_terminated = True
-            cv2.destroyAllWindows()
+        while not r.is_terminated:
 
-        # get current value of body
-        body_calib.append(np.copy(body))
+            success, frame = cap.read()
+            if not success:
+                print("Ignoring empty camera frame.")
+                # If loading a video, use 'break' instead of 'continue'.
+                continue
 
-        # update time elapsed label
-        time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
-        lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
-        lbl_calib.update()
+            frame.flags.writeable = False
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = holistic.process(frame)
+            # Draw landmark annotation on the image.
+            frame.flags.writeable = True
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            mp_drawing.draw_landmarks(
+                frame,
+                results.face_landmarks,
+                mp_holistic.FACEMESH_CONTOURS,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=mp_drawing_styles
+                    .get_default_face_mesh_contours_style())
+            mp_drawing.draw_landmarks(
+                frame,
+                results.pose_landmarks,
+                mp_holistic.POSE_CONNECTIONS,
+                landmark_drawing_spec=mp_drawing_styles
+                    .get_default_pose_landmarks_style())
+            mp_drawing.draw_landmarks(
+                frame,
+                results.left_hand_landmarks,
+                mp_holistic.HAND_CONNECTIONS,
+                landmark_drawing_spec=mp_drawing_styles
+                    .get_default_pose_landmarks_style())
+            mp_drawing.draw_landmarks(
+                frame,
+                results.right_hand_landmarks,
+                mp_holistic.HAND_CONNECTIONS,
+                landmark_drawing_spec=mp_drawing_styles
+                    .get_default_pose_landmarks_style())
+            # Flip the image horizontally for a selfie-view display.
+            cv2.imshow(wind_name, cv2.flip(frame, 1))
 
-        # --- Limit to 50 frames per second
-        clock.tick(50)
+            if cv2.waitKey(1) == 27:
+                break  # esc to quit
 
-    # Stop the game engine and release the capture
-    holistic.close()
-    print("pose estimation object released in calibration.")
-    cap.release()
-    cv2.destroyAllWindows()
-    print("openCV object released in calibration.")
+            if timer_calib.elapsed_time > calib_duration:
+                r.is_terminated = True
+                cv2.destroyAllWindows()
 
-    # print calibration file
-    body_calib = np.array(body_calib)
-    if not os.path.exists(drPath):
-        os.makedirs(drPath)
-    np.savetxt(drPath + "Calib.txt", body_calib)
+            # get current value of body
+            body_calib.append(np.copy(body))
 
-    print('Calibration finished. You can now train BoMI forward map.')
+            # update time elapsed label
+            time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
+            lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
+            lbl_calib.update()
+
+            # --- Limit to 50 frames per second
+            clock.tick(50)
+
+        # Stop the game engine and release the capture
+        holistic.close()
+        print("pose estimation object released in calibration.")
+        cap.release()
+        cv2.destroyAllWindows()
+        print("openCV object released in calibration.")
+
+        # print calibration file
+        body_calib = np.array(body_calib)
+        if not os.path.exists(drPath):
+            os.makedirs(drPath)
+        np.savetxt(drPath + "Calib.txt", body_calib)
+
+        print('Calibration finished. You can now train BoMI forward map.')
 
 
-def train_pca(calibPath, drPath):
+def train_pca(calibPath, drPath, n_map_component):
     """
     function to train BoMI forward map - PCA
     :param drPath: path to save BoMI forward map
@@ -454,7 +519,7 @@ def train_pca(calibPath, drPath):
     test_x = x[split:, :]
 
     # initialize object of class PCA
-    n_pc = 2
+    n_pc = n_map_component
     PCA = PrincipalComponentAnalysis(n_pc)
 
     # train PCA
@@ -500,7 +565,7 @@ def train_pca(calibPath, drPath):
     print('PCA scaling values has been saved. You can continue with customization.')
 
 
-def train_ae(calibPath, drPath):
+def train_ae(calibPath, drPath, n_map_component):
     """
     function to train BoMI forward map
     :param drPath: path to save BoMI forward map
@@ -511,7 +576,7 @@ def train_ae(calibPath, drPath):
     # Autoencoder parameters
     n_steps = 3001
     lr = 0.02
-    cu = 2
+    cu = n_map_component
     nh1 = 6
     activ = "tanh"
 
@@ -555,6 +620,8 @@ def train_ae(calibPath, drPath):
     rot = 0
     train_cu[0] = train_cu[0] * np.cos(np.pi / 180 * rot) - train_cu[1] * np.sin(np.pi / 180 * rot)
     train_cu[1] = train_cu[0] * np.sin(np.pi / 180 * rot) + train_cu[1] * np.cos(np.pi / 180 * rot)
+    if cu == 3:
+        train_cu[2] = np.tanh(train_cu[2])
     # Applying scale
     scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
     train_cu = train_cu * scale
@@ -661,7 +728,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints):
 
     # Open a new window
     size = (r.width, r.height)
-    screen = pygame.display.set_mode(size)
+    screen = pygame.display.set_mode(size, pygame.NOFRAME)
     # screen = pygame.display.toggle_fullscreen()
 
     # -------- Main Program Loop -----------
@@ -787,7 +854,7 @@ def save_parameters(self, drPath):
     print('Customization values have been saved. You can continue with practice.')
 
 # [ADD CODE HERE: check_mouse as function input]
-def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
+def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
     """
     function to perform online cursor control - practice
     :param drPath: path where to load the BoMI forward map and customization values
@@ -796,7 +863,10 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
     :return:
     """
     pygame.init()
-
+    if mouse_bool == True:
+        print("Mouse control active")
+    else:
+        print("Game active")
     # [ADD CODE HERE] get value from checkbox - is mouse enabled? !!!!!!!!!!!!!!!!!!!
 
     ############################################################
@@ -815,7 +885,11 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
 
     # Open a new window
     size = (r.width, r.height)
-    screen = pygame.display.set_mode(size)
+    if mouse_bool == False:
+        screen = pygame.display.set_mode(size, pygame.NOFRAME)
+
+    else:
+        print("Control the mouse")
     # screen = pygame.display.toggle_fullscreen()
 
     # The clock will be used to control how fast the screen updates
@@ -905,14 +979,17 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
                 (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom)
 
             # Check if the crs is bouncing against any of the 4 walls:
-            if r.crs_x >= r.width:
-                r.crs_x = r.width
-            if r.crs_x <= 0:
-                r.crs_x = 0
-            if r.crs_y >= r.height:
-                r.crs_y = 0
-            if r.crs_y <= 0:
-                r.crs_y = r.height
+
+            if mouse_bool == False:
+
+                if r.crs_x >= r.width:
+                    r.crs_x = r.width
+                if r.crs_x <= 0:
+                    r.crs_x = 0
+                if r.crs_y >= r.height:
+                    r.crs_y = 0
+                if r.crs_y <= 0:
+                    r.crs_y = r.height
 
             # Filter the cursor
             r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
@@ -920,47 +997,50 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
             # if mouse checkbox was enabled do not draw the reaching GUI,
             # only change coordinates of the computer cursor !!!!!!!!!!!!!!!!!!!!!
             # [ADD CODE HERE] !!!!!!!!!!!!!!!!!!!!!
+            if mouse_bool == True:
 
+                # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
+                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
 
-            # else: do the reaching
+            else:
 
-            # Set target position to update the GUI
-            reaching_functions.set_target_reaching(r)
-            # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
-            screen.fill(BLACK)
-            # Do not show the cursor in the blind trials when the cursor is outside the home target
-            if not r.is_blind:
-                # draw cursor
-                pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
+                # Set target position to update the GUI
+                reaching_functions.set_target_reaching(r)
+                # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
+                screen.fill(BLACK)
+                # Do not show the cursor in the blind trials when the cursor is outside the home target
+                if not r.is_blind:
+                    # draw cursor
+                    pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
 
-            # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
-            if r.state == 0:  # green
-                pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-            elif r.state == 1:
-                pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-            elif r.state == 2:  # yellow
-                if r.is_blind:  # green again if blind trial
+                # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
+                if r.state == 0:  # green
                     pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                else:  # yellow if not blind
-                    pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                elif r.state == 1:
+                    pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                elif r.state == 2:  # yellow
+                    if r.is_blind:  # green again if blind trial
+                        pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                    else:  # yellow if not blind
+                        pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
 
-            # Display scores:
-            font = pygame.font.Font(None, 80)
-            text = font.render(str(r.score), True, RED)
-            screen.blit(text, (1250, 10))
+                # Display scores:
+                font = pygame.font.Font(None, 80)
+                text = font.render(str(r.score), True, RED)
+                screen.blit(text, (1250, 10))
 
-            # --- update the screen with what we've drawn.
-            pygame.display.flip()
+                # --- update the screen with what we've drawn.
+                pygame.display.flip()
 
-            # After showing the cursor, check whether cursor is in the target
-            reaching_functions.check_target_reaching(r, timer_enter_tgt)
-            # Then check if cursor stayed in the target for enough time
-            reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
+                # After showing the cursor, check whether cursor is in the target
+                reaching_functions.check_target_reaching(r, timer_enter_tgt)
+                # Then check if cursor stayed in the target for enough time
+                reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
 
-            # update label with number of targets remaining
-            tgt_remaining = 248 - r.trial + 1
-            lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
-            lbl_tgt.update()
+                # update label with number of targets remaining
+                tgt_remaining = 248 - r.trial + 1
+                lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
+                lbl_tgt.update()
 
             # --- Limit to 50 frames per second
             clock.tick(50)
