@@ -39,6 +39,11 @@ class MainApplication(tk.Frame):
     """
 
     def __init__(self, parent, *args, **kwargs):
+
+        # TODO: take this from GUI
+        #self.video_camera_device = "../biorob/bomi_calibration.mkv" # -> 0 for the camera
+        self.video_camera_device = 0 # -> 0 for the camera
+
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
         self.calibPath = os.path.dirname(os.path.abspath(__file__)) + "/calib/"
@@ -167,7 +172,7 @@ class MainApplication(tk.Frame):
         # start calibration dance - collect webcam data
         self.w = popupWindow(self.master, "You will now start calibration.")
         self.master.wait_window(self.w.top)
-        compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints)
+        compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints, self.video_camera_device)
         self.btn_map["state"] = "normal"
 
     def train_map(self):
@@ -228,6 +233,12 @@ class CustomizationApplication(tk.Frame):
     """
 
     def __init__(self, parent, mainTk, drPath, num_joints, joints, dr_mode):
+
+        # TODO: take this from GUI
+        #self.video_camera_device = "../biorob/bomi_play.mkv" # -> 0 for the camera
+
+        self.video_camera_device = 0
+
         tk.Frame.__init__(self, parent)
         self.parent = parent
         self.mainTk = mainTk
@@ -306,7 +317,7 @@ class CustomizationApplication(tk.Frame):
         return self.txt_oy.get("1.0", "end-1c")
 
     def customization(self):
-        initialize_customization(self, self.dr_mode, self.drPath, self.num_joints, self.joints)
+        initialize_customization(self, self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
 
     def save_parameters(self):
         save_parameters(self, self.drPath)
@@ -330,7 +341,7 @@ class popupWindow(object):
         self.top.destroy()
 
 
-def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
+def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, video_device):
     """
     function called to collect calibration data from webcam
     :param drPath: path to save calibration file
@@ -339,7 +350,14 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints):
     :return:
     """
     # Create object of openCV and Reaching (needed for terminating mediapipe thread)
-    cap = cv2.VideoCapture(0)
+
+    # try using an external video source, if present
+    print("Using video device {}".format(video_device))
+    try:
+        cap = cv2.VideoCapture(video_device)
+    except:
+        cap = cv2.VideoCapture(0)
+
     r = Reaching()
 
     # The clock will be used to control how fast the screen updates. Stopwatch to count calibration time elapsed
@@ -575,7 +593,7 @@ def load_bomi_map(dr_mode, drPath):
     return map
 
 
-def initialize_customization(self, dr_mode, drPath, num_joints, joints):
+def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
     """
     initialize objects needed for online cursor control. Start all the customization threads as well
     :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
@@ -584,7 +602,10 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints):
     """
 
     # Create object of openCV, Reaching class and filter_butter3
-    cap = cv2.VideoCapture(0)
+    try:
+        cap = cv2.VideoCapture(video_device)
+    except:
+        cap = cv2.VideoCapture(0)
     r = Reaching()
     filter_curs = FilterButter3("lowpass_4")
 
