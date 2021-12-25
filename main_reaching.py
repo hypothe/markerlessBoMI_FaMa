@@ -41,7 +41,7 @@ class MainApplication(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
 
         # TODO: take this from GUI
-        #self.video_camera_device = "../biorob/bomi_calibration.mkv" # -> 0 for the camera
+        # self.video_camera_device = "../videos/bomi_calibration.mkv" # -> 0 for the camera
         self.video_camera_device = 0 # -> 0 for the camera
 
         tk.Frame.__init__(self, parent, *args, **kwargs)
@@ -984,8 +984,12 @@ def get_data_from_camera(cap, q_frame, r, cal):
     '''
     while not r.is_terminated:
         if not r.is_paused:
-            ret, frame = cap.read()
-            q_frame.put(frame)
+            try:
+                ret, frame = cap.read()
+                q_frame.put(frame)
+            # TODO: why does the video, lasting 30 secs, end almost 10 secs before?
+            except:
+                r.is_terminated = True
             # if cal == 1:
             #    cv2.imshow('current frame', frame)
     print('OpenCV thread terminated.')
@@ -1007,50 +1011,54 @@ def mediapipe_forwardpass(holistic, mp_holistic, lock, q_frame, r, num_joints, j
             # not sure if we want to put try/catch here, just in case "ask forgiveness, not permission"
             # try:
             # get current frame from thread
-            curr_frame = q_frame.get()
-            body_list = []
+            try:
+                curr_frame = q_frame.get()
+                body_list = []
+                # Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
+                image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
+            except:
+                r.is_terminated = True
+                print("Capture ended early")
+            else:
+                # To improve performance, optionally mark the image as not writeable to pass by reference.
+                image.flags.writeable = False
+                results = holistic.process(image)
 
-            # Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
-            image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
-            # To improve performance, optionally mark the image as not writeable to pass by reference.
-            image.flags.writeable = False
-            results = holistic.process(image)
+                if not results.pose_landmarks:
+                    continue
+                if joints[0, 0] == 1:
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
+                if joints[1, 0] == 1:
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
+                if joints[2, 0] == 1:
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
+                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
+                if joints[3, 0] == 1 or joints[4, 0] == 1:
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
+                if joints[4, 0] == 1:
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
+                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
 
-            if not results.pose_landmarks:
-                continue
-            if joints[0, 0] == 1:
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
-            if joints[1, 0] == 1:
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
-            if joints[2, 0] == 1:
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
-                body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
-            if joints[3, 0] == 1 or joints[4, 0] == 1:
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
-            if joints[4, 0] == 1:
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
-                body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
-
-            body_mp = np.array(body_list)
-            q_frame.queue.clear()
-            with lock:
-                body = np.copy(body_mp)
-            # except:
-            #     print('Expection in mediapipe_forwardpass. Closing thread')
-            #     r.is_terminated = True
+                body_mp = np.array(body_list)
+                q_frame.queue.clear()
+                with lock:
+                    body = np.copy(body_mp)
+                # except:
+                #     print('Expection in mediapipe_forwardpass. Closing thread')
+                #     r.is_terminated = True
     print('Mediapipe_forwardpass thread terminated.')
 
 
