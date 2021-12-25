@@ -11,7 +11,7 @@ import queue
 import cv2
 # For GUI
 import tkinter as tk
-from tkinter import Label, Button, BooleanVar, Checkbutton, Text
+from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Entry
 # For pygame
 import pygame
 # For reaching task
@@ -131,6 +131,15 @@ class MainApplication(tk.Frame):
         self.lbl_tgt.config(font=("Arial", self.font_size))
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
+
+        # Camera video input
+        self.btn_calibCam = Button(parent, text='Calibration video device', command=self.setCameraDevice)
+        self.btn_calibCam.config(font=("Arial", self.font_size))
+        self.btn_calibCam.grid(row=5, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.ent_calibCam = Entry(parent, width=30)
+        self.ent_calibCam.config(font=("Arial", self.font_size))
+        self.ent_calibCam.grid(row=5, column=2, pady=(20, 30), columnspan=5, sticky='w')
+
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
 
         #############################################################
@@ -138,6 +147,13 @@ class MainApplication(tk.Frame):
         self.btn_close = Button(parent, text="Close", command=parent.destroy, bg="red")
         self.btn_close.config(font=("Arial", self.font_size))
         self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+
+    def setCameraDevice(self):
+        self.video_camera_device = self.ent_calibCam.get()
+        if not self.video_camera_device:
+            self.video_camera_device = 0
+        print(self.video_camera_device)
+
 
     # Count number of joints selected
     def select_joints(self):
@@ -299,6 +315,8 @@ class CustomizationApplication(tk.Frame):
         self.btn_close = Button(parent, text="Close", command=parent.destroy, bg='red')
         self.btn_close.config(font=("Arial", self.font_size))
         self.btn_close.grid(column=2, row=3, sticky='nesw', padx=(80, 0), pady=(40, 20))
+
+
 
     # functions to retrieve values of textbox programmatically
     def retrieve_txt_rot(self):
