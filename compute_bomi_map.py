@@ -169,7 +169,8 @@ class Autoencoder(object):
 
         # to make this notebook's output stable across runs
         np.random.seed(self._seed)
-        tf.random.set_seed(self._seed)
+        # tf.random.set_seed(self._seed) original
+        tf.random.set_random_seed(self._seed)
 
         # object for callback function during training
         loss_callback = LossCallback()
