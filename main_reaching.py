@@ -1,4 +1,5 @@
 # General imports
+from tkinter.constants import DISABLED, INSERT
 import numpy as np
 import pandas as pd
 import os
@@ -12,6 +13,8 @@ import cv2
 # For GUI
 import tkinter as tk
 from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Entry
+from tkinter import filedialog as fd
+from tkinter.messagebox import showinfo
 # For pygame
 import pygame
 # For reaching task
@@ -133,12 +136,15 @@ class MainApplication(tk.Frame):
 
 
         # Camera video input
-        self.btn_calibCam = Button(parent, text='Calibration video device', command=self.setCameraDevice)
-        self.btn_calibCam.config(font=("Arial", self.font_size))
-        self.btn_calibCam.grid(row=5, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.ent_calibCam = Entry(parent, width=30)
-        self.ent_calibCam.config(font=("Arial", self.font_size))
-        self.ent_calibCam.grid(row=5, column=2, pady=(20, 30), columnspan=5, sticky='w')
+        self.btn_cam = Button(parent, text='Ext. Video Source', command=self.selectVideoFile)
+        self.btn_cam.config(font=("Arial", self.font_size))
+        self.btn_cam.grid(row=5, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.ent_cam = Entry(parent, width=30)
+        self.ent_cam.config(font=("Arial", self.font_size))
+        self.ent_cam.grid(row=5, column=2, pady=(20, 30), columnspan=3, sticky='w')
+        self.btn_camClear = Button(parent, text='Camera Video Source', command=self.clearVideoSource, bg='red')
+        self.btn_camClear.config(font=("Arial", self.font_size))
+        self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
 
@@ -148,11 +154,36 @@ class MainApplication(tk.Frame):
         self.btn_close.config(font=("Arial", self.font_size))
         self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
-    def setCameraDevice(self):
-        self.video_camera_device = self.ent_calibCam.get()
+    def selectVideoFile(self):
+        filetypes = (
+            ('all files', '*.*'),
+            ('mp4', '*.mp4'),
+            ('mkv', '*.mkv')
+        )
+        filename = fd.askopenfilename(
+            title = 'Select a video',
+            initialdir='.',
+            filetypes=filetypes
+        )
+
+        self.video_camera_device = filename
+        out_txt = filename
         if not self.video_camera_device:
             self.video_camera_device = 0
-        print(self.video_camera_device)
+            out_txt = "/dev/video0"
+
+        showinfo(
+            title = 'Selected File',
+            message = str(out_txt)
+        )
+        # clear any previous text and add this one
+        self.ent_cam.delete(0, 'end')
+        self.ent_cam.insert(INSERT, out_txt)
+
+    def clearVideoSource(self):
+        self.video_camera_device = 0
+        self.ent_cam.delete(0, 'end')
+        self.ent_cam.insert(INSERT, '/dev/video0')
 
 
     # Count number of joints selected
@@ -222,7 +253,7 @@ class MainApplication(tk.Frame):
             self.newWindow.geometry("1000x500")
             self.newWindow.title("Customization")
             self.app = CustomizationApplication(self.newWindow, self, drPath=self.drPath, num_joints=self.num_joints,
-                                                joints=self.joints, dr_mode=self.dr_mode)
+                                                joints=self.joints, dr_mode=self.dr_mode, video_camera_device=self.video_camera_device)
         else:
             self.w = popupWindow(self.master, "Compute BoMI map first.")
             self.master.wait_window(self.w.top)
@@ -234,7 +265,7 @@ class MainApplication(tk.Frame):
             # open pygame and start reaching task
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode)
+            start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         else:
@@ -248,12 +279,12 @@ class CustomizationApplication(tk.Frame):
     class that defines the customization tkinter window
     """
 
-    def __init__(self, parent, mainTk, drPath, num_joints, joints, dr_mode):
+    def __init__(self, parent, mainTk, drPath, num_joints, joints, dr_mode, video_camera_device):
 
         # TODO: take this from GUI
         #self.video_camera_device = "../biorob/bomi_play.mkv" # -> 0 for the camera
 
-        self.video_camera_device = 0
+        self.video_camera_device = video_camera_device
 
         tk.Frame.__init__(self, parent)
         self.parent = parent
@@ -803,7 +834,7 @@ def save_parameters(self, drPath):
     print('Customization values have been saved. You can continue with practice.')
 
 # [ADD CODE HERE: check_mouse as function input]
-def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
+def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, video_device=0):
     """
     function to perform online cursor control - practice
     :param drPath: path where to load the BoMI forward map and customization values
@@ -825,7 +856,7 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode):
     CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 
     # Create object of openCV, Reaching class and filter_butter3
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(video_device)
     r = Reaching()
     filter_curs = FilterButter3("lowpass_4")
 
@@ -1115,8 +1146,8 @@ if __name__ == "__main__":
     screen_width = win.winfo_screenwidth()
     screen_height = win.winfo_screenheight()
 
-    window_width = math.ceil(screen_width / 2)
-    window_height = math.ceil(screen_height / 2)
+    window_width = math.ceil(screen_width / 1.7)
+    window_height = math.ceil(screen_height / 1.7)
 
     x_cordinate = int((screen_width / 2) - (window_width / 2))
     y_cordinate = int((screen_height / 2) - (window_height / 2))
