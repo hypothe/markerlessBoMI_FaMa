@@ -56,8 +56,6 @@ class MainApplication(tk.Frame):
 
     def __init__(self, parent, *args, **kwargs):
 
-        # TODO: take this from GUI
-        # self.video_camera_device = "../videos/bomi_calibration.mkv" # -> 0 for the camera
         self.video_camera_device = 0 # -> 0 for the camera
 
         tk.Frame.__init__(self, parent, *args, **kwargs)
@@ -432,10 +430,16 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     # Create object of openCV and Reaching (needed for terminating mediapipe thread)
     # try using an external video source, if present
     print("Using video device {}".format(video_device))
+
+    cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
+
+    #try:
+    #    cap = cv2.VideoCapture(video_device, cv2_OPENMODE)
+    #except:
     try:
-        cap = cv2.VideoCapture(video_device, cv2.CAP_FFMPEG)
-    except:
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    except:
+        print("Unable to open webcam")
 
     cv2.destroyAllWindows()
 
