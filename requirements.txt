@@ -8,3 +8,4 @@ pyautogui
 mediapipe
 tensorflow
 sklearn
+mouse

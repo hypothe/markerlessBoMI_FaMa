@@ -437,8 +437,6 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     except:
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-    print("CANEDI")
-    print(active_joints)
     cv2.destroyAllWindows()
 
     r = Reaching()
