@@ -431,15 +431,13 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     # try using an external video source, if present
     print("Using video device {}".format(video_device))
 
-    cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
+    # cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
 
-    #try:
-    #    cap = cv2.VideoCapture(video_device, cv2_OPENMODE)
-    #except:
     try:
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(video_device) #, cv2_OPENMODE)
     except:
-        print("Unable to open webcam")
+        print("Unable to open source at {}, defaulting to camera 0".format(video_device))
+        cap = cv2.VideoCapture(0) #, cv2.CAP_DSHOW)
 
     cv2.destroyAllWindows()
 
