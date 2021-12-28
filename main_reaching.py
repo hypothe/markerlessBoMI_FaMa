@@ -30,11 +30,33 @@ from compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_va
 import ctypes
 import math
 import mouse
+from blinkdetector_utils import *
+
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
+# variables
+frame_counter = 0
+
+calibration_time = 30000
+
+# constants
+FONTS = cv2.FONT_HERSHEY_COMPLEX
+
+# Define some colors
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
+
 # TODO
 # calib_duration to be set back to 30000
+# varaitional autoencoders to be fixed
+# ADD TEXT ON IMAGE
+
+
 
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
   return offset + L / (1 + math.exp(k*(x0-x)))
@@ -96,7 +118,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 10000 #30000
+        self.calib_duration = calibration_time #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(win, text='Calibration time: ')
@@ -211,9 +233,11 @@ class MainApplication(tk.Frame):
                 self.dr_mode = 'ae'
             #elif self.check_vae.get():
             elif self.check_alg.get() == 2:
-                self.drPath = self.calibPath + 'AE/'
+                self.drPath = self.calibPath + 'VAE/'
+                print(self.drPath)
                 train_ae(self.calibPath, self.drPath, self.n_map_component)
-                self.dr_mode = 'ae'
+                #train_vae(self.calibPath, self.drPath, self.n_map_component)
+                self.dr_mode = 'vae'
             self.btn_custom["state"] = "normal"
         else:
             self.w = popupWindow(self.master, "Perform calibration first.")
@@ -359,6 +383,16 @@ class popupWindow(object):
     def cleanup(self):
         self.top.destroy()
 
+# landmark detection function
+def landmarksDetection(img, results, draw=False):
+    img_height, img_width= img.shape[:2]
+    # list[(x,y), (x,y)....]
+    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in results.multi_face_landmarks[0].landmark]
+    if draw :
+        [cv2.circle(img, p, 2, GREEN, -1) for p in mesh_coord]
+
+    # returning the list of tuples for each landmarks
+    return mesh_coord
 
 def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, active_joints):
     """
@@ -382,6 +416,9 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
     # initialize MediaPipe Pose
     mp_holistic = mp.solutions.holistic
+    # initalize MediaPipe face detection
+    mp_face_mesh = mp.solutions.face_mesh
+
     holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                     smooth_landmarks=False)
 
@@ -419,72 +456,133 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
 
-    with mp_holistic.Holistic(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5) as holistic:
+    with mp_holistic.Holistic(min_detection_confidence=0.5,min_tracking_confidence=0.5) as holistic:
 
-        while not r.is_terminated:
+        with mp_face_mesh.FaceMesh(
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5) as face_mesh:
 
-            success, frame = cap.read()
-            if not success:
-                print("Ignoring empty camera frame.")
-                # If loading a video, use 'break' instead of 'continue'.
-                continue
+            while not r.is_terminated:
 
-            frame.flags.writeable = False
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = holistic.process(frame)
-            # Draw landmark annotation on the image.
-            frame.flags.writeable = True
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            if active_joints[1] == True:
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.face_landmarks,
-                    mp_holistic.FACEMESH_CONTOURS,
-                    landmark_drawing_spec=None,
-                    connection_drawing_spec=mp_drawing_styles
-                        .get_default_face_mesh_contours_style())
-            if (active_joints[0] == True) or (active_joints[2] == True):
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.pose_landmarks,
-                    mp_holistic.POSE_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-            if (active_joints[3] == True) or (active_joints[4] == True):
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.left_hand_landmarks,
-                    mp_holistic.HAND_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.right_hand_landmarks,
-                    mp_holistic.HAND_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-            # Flip the image horizontally for a selfie-view display.
-            cv2.imshow(wind_name, cv2.flip(frame, 1))
+                # starting time here
+                start_time = time.time()
 
-            if cv2.waitKey(1) == 27:
-                break  # esc to quit
+                success, frame = cap.read()
+                if not success:
+                    print("Ignoring empty camera frame.")
+                    # If loading a video, use 'break' instead of 'continue'.
+                    continue
 
-            if timer_calib.elapsed_time > calib_duration:
-                r.is_terminated = True
-                cv2.destroyAllWindows()
+                frame.flags.writeable = False
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = holistic.process(frame)
+                # Draw landmark annotation on the image.
+                frame.flags.writeable = True
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                if active_joints[1] == True:
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        results.face_landmarks,
+                        mp_holistic.FACEMESH_CONTOURS,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=mp_drawing_styles
+                            .get_default_face_mesh_contours_style())
+                if (active_joints[0] == True) or (active_joints[2] == True):
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        results.pose_landmarks,
+                        mp_holistic.POSE_CONNECTIONS,
+                        landmark_drawing_spec=mp_drawing_styles
+                            .get_default_pose_landmarks_style())
+                if (active_joints[3] == True) or (active_joints[4] == True):
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        results.left_hand_landmarks,
+                        mp_holistic.HAND_CONNECTIONS,
+                        landmark_drawing_spec=mp_drawing_styles
+                            .get_default_pose_landmarks_style())
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        results.right_hand_landmarks,
+                        mp_holistic.HAND_CONNECTIONS,
+                        landmark_drawing_spec=mp_drawing_styles
+                            .get_default_pose_landmarks_style())
 
-            # get current value of body
-            body_calib.append(np.copy(body))
+                # Add fps info on the screen
+                # calculating  frame per seconds FPS
+                end_time = time.time() - start_time
+                fps = frame_counter / end_time
 
-            # update time elapsed label
-            time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
-            lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
-            lbl_calib.update()
+                # Add eyes
+                # Draw the face mesh annotations on the image.
+                frame.flags.writeable = True
+                results_face = face_mesh.process(frame)
+                if results_face.multi_face_landmarks:
+                    for face_landmarks in results_face.multi_face_landmarks:
+                        #mp_drawing.draw_landmarks(
+                         #   image=frame,
+                          #  landmark_list=face_landmarks,
+                           # connections=mp_face_mesh.FACEMESH_TESSELATION,
+                            #landmark_drawing_spec=None,
+                            #connection_drawing_spec=mp_drawing_styles
+                             #   .get_default_face_mesh_tesselation_style())
+                        mp_drawing.draw_landmarks(
+                            image=frame,
+                            landmark_list=face_landmarks,
+                            connections=mp_face_mesh.FACEMESH_CONTOURS,
+                            landmark_drawing_spec=None,
+                            connection_drawing_spec=mp_drawing_styles
+                                .get_default_face_mesh_contours_style())
+                        mp_drawing.draw_landmarks(
+                            image=frame,
+                            landmark_list=face_landmarks,
+                            connections=mp_face_mesh.FACEMESH_IRISES,
+                            landmark_drawing_spec=None,
+                            connection_drawing_spec=mp_drawing_styles
+                                .get_default_face_mesh_iris_connections_style())
 
-            # --- Limit to 50 frames per second
-            clock.tick(50)
+
+                    mesh_coords = landmarksDetection(frame, results_face, False)
+                    right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
+    #                    # cv.putText(frame, f'ratio {ratio}', (100, 100), FONTS, 1.0, utils.GREEN, 2)
+     #                   cv2.utils.colorBackgroundText(frame, f'Ratio : {round(ratio, 2)}', FONTS, 0.7, (30, 100), 2, cv2.utils.PINK,
+      #                                            cv2.utils.YELLOW)
+
+                    print(right_ratio, left_ratio)
+
+                    if right_ratio > 4.5 and left_ratio < 4.5 :
+                        print("I saw you blinking the right eye...")
+                    elif right_ratio < 4.5 and left_ratio > 4.5 :
+                        print("I saw you blinking the left eye...")
+                    elif right_ratio > 4.5 and left_ratio > 4.5 :
+                        print("I saw you blinking both eyes...")
+
+
+                # Flip the image horizontally for a selfie-view display.
+                cv2.imshow(wind_name, cv2.flip(frame, 1))
+
+                # add text
+                # cv2.putText(wind_name, "fps: " + str(fps), (10, 500), FONTS, 4, (255, 255, 255), 2, cv2.LINE_AA)
+
+                if cv2.waitKey(1) == 27:
+                    break  # esc to quit
+
+                if timer_calib.elapsed_time > calib_duration:
+                    r.is_terminated = True
+                    cv2.destroyAllWindows()
+
+                # get current value of body
+                body_calib.append(np.copy(body))
+
+                # update time elapsed label
+                time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
+                lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
+                lbl_calib.update()
+
+                # --- Limit to 50 frames per second
+                clock.tick(50)
 
         # Stop the game engine and release the capture
         holistic.close()
@@ -648,6 +746,82 @@ def train_ae(calibPath, drPath, n_map_component):
 
     print('AE scaling values has been saved. You can continue with customization.')
 
+def train_vae(calibPath, drPath, n_map_component):
+    """
+    function to train BoMI forward map
+    :param drPath: path to save BoMI forward map
+    :return:
+    """
+    r = Reaching()
+
+    # Autoencoder parameters
+    n_steps = 3001
+    lr = 0.02
+    cu = n_map_component
+    nh1 = 6
+    activ = "tanh"
+
+    # read calibration file and remove all the initial zero rows
+    xp = list(pd.read_csv(calibPath + 'Calib.txt', sep=' ', header=None).values)
+    x = [i for i in xp if all(i)]
+    x = np.array(x)
+
+    # randomly shuffle input
+    np.random.shuffle(x)
+
+    # define train/test split
+    thr = 80
+    split = int(len(x) * thr / 100)
+    train_x = x[0:split, :]
+    test_x = x[split:, :]
+
+    # initialize object of class Autoencoder
+    AE = Autoencoder(n_steps, lr, cu, activation=activ, nh1=nh1, seed=0)
+
+    # train AE network
+    history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_vae(train_x, beta=0.00035, x_test=test_x)
+    print('VAE has been trained.')
+
+    # save weights and biases
+    if not os.path.exists(drPath):
+        os.makedirs(drPath)
+    for layer in range(3):
+        np.savetxt(drPath + "weights" + str(layer + 1) + ".txt", ws[layer])
+        np.savetxt(drPath + "biases" + str(layer + 1) + ".txt", bs[layer])
+
+    print('BoMI forward map (VAE parameters) has been saved.')
+
+    # compute train/test VAF
+    print(f'Training VAF: {compute_vaf(train_x, train_x_rec)}')
+    print(f'Test VAF: {compute_vaf(test_x, test_x_rec)}')
+
+    # normalize latent space to fit the monitor coordinates
+    # Applying rotation
+    rot = 0
+    train_cu[0] = train_cu[0] * np.cos(np.pi / 180 * rot) - train_cu[1] * np.sin(np.pi / 180 * rot)
+    train_cu[1] = train_cu[0] * np.sin(np.pi / 180 * rot) + train_cu[1] * np.cos(np.pi / 180 * rot)
+    if cu == 3:
+        train_cu[2] = np.tanh(train_cu[2])
+    # Applying scale
+    scale = [r.width / np.ptp(train_cu[0][:, 0]), r.height / np.ptp(train_cu[0][:, 1])]
+    train_cu[0] = train_cu[0] * scale
+    # Applying offset
+    off = [r.width / 2 - np.mean(train_cu[0][:, 0]), r.height / 2 - np.mean(train_cu[0][:, 1])]
+    train_cu[0] = train_cu[0] + off
+
+    # Plot latent space
+    plt.figure()
+    plt.scatter(train_cu[:, 0], train_cu[:, 1], c='green', s=20)
+    plt.title('Projections in workspace')
+    plt.axis("equal")
+
+    # save AE scaling values
+    with open(drPath + "rotation_dr.txt", 'w') as f:
+        print(rot, file=f)
+    np.savetxt(drPath + "scale_dr.txt", scale)
+    np.savetxt(drPath + "offset_dr.txt", off)
+
+    print('VAE scaling values has been saved. You can continue with customization.')
 
 def load_bomi_map(dr_mode, drPath):
     if dr_mode == 'pca':
@@ -875,13 +1049,6 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
     # [ADD CODE HERE] get value from checkbox - is mouse enabled? !!!!!!!!!!!!!!!!!!!
 
     ############################################################
-
-    # Define some colors
-    BLACK = (0, 0, 0)
-    RED = (255, 0, 0)
-    GREEN = (0, 255, 0)
-    YELLOW = (255, 255, 0)
-    CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 
     # Create object of openCV, Reaching class and filter_butter3
     cap = cv2.VideoCapture(0)
