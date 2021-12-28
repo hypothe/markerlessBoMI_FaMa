@@ -103,7 +103,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 10000 #30000
+        self.calib_duration = 30000 #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(parent, text='Calibration time: ')
@@ -431,10 +431,10 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     # try using an external video source, if present
     print("Using video device {}".format(video_device))
 
-    # cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
-
+    #cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
+    #print("Openmode {}".format(cv2_OPENMODE))
     try:
-        cap = cv2.VideoCapture(video_device) #, cv2_OPENMODE)
+        cap = cv2.VideoCapture(video_device)#, cv2_OPENMODE)
     except:
         print("Unable to open source at {}, defaulting to camera 0".format(video_device))
         cap = cv2.VideoCapture(0) #, cv2.CAP_DSHOW)
