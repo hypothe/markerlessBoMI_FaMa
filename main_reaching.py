@@ -37,7 +37,7 @@ pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is T
 # variables
 frame_counter = 0
 blink_th = 6.0
-calibration_time = 5000
+calibration_time = 30000
 
 # constants
 FONTS = cv2.FONT_HERSHEY_COMPLEX
@@ -403,7 +403,6 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
     """
     # Create object of openCV and Reaching (needed for terminating mediapipe thread)
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    print("CANEDI")
     print(active_joints)
     cv2.destroyAllWindows()
 
@@ -1185,12 +1184,16 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
                     if right_ratio > blink_th and left_ratio < blink_th:
                         print("I saw you blinking the right eye...")
                         mouse.click('right')
+                        time.sleep(1.0)
                     elif right_ratio < blink_th and left_ratio > blink_th:
                         print("I saw you blinking the left eye...")
                         mouse.click('left')
+                        time.sleep(1.0)
                     elif right_ratio > blink_th and left_ratio > blink_th:
                         print("I saw you blinking both eyes...")
-                        print("Dunno???")
+                        print("Disconnecting the mouse control!")
+                        mouse_bool = False
+                        time.sleep(1.0)
                     time.sleep(0.2)
 
             else:
