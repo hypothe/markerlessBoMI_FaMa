@@ -32,13 +32,12 @@ import math
 import mouse
 from blinkdetector_utils import *
 
-
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
 # variables
 frame_counter = 0
-
-calibration_time = 30000
+blink_th = 6.0
+calibration_time = 5000
 
 # constants
 FONTS = cv2.FONT_HERSHEY_COMPLEX
@@ -510,11 +509,6 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
                         landmark_drawing_spec=mp_drawing_styles
                             .get_default_pose_landmarks_style())
 
-                # Add fps info on the screen
-                # calculating  frame per seconds FPS
-                end_time = time.time() - start_time
-                fps = frame_counter / end_time
-
                 # Add eyes
                 # Draw the face mesh annotations on the image.
                 frame.flags.writeable = True
@@ -546,19 +540,15 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
                     mesh_coords = landmarksDetection(frame, results_face, False)
                     right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
-    #                    # cv.putText(frame, f'ratio {ratio}', (100, 100), FONTS, 1.0, utils.GREEN, 2)
-     #                   cv2.utils.colorBackgroundText(frame, f'Ratio : {round(ratio, 2)}', FONTS, 0.7, (30, 100), 2, cv2.utils.PINK,
-      #                                            cv2.utils.YELLOW)
 
                     print(right_ratio, left_ratio)
 
-                    if right_ratio > 4.5 and left_ratio < 4.5 :
+                    if right_ratio > blink_th and left_ratio < blink_th:
                         print("I saw you blinking the right eye...")
-                    elif right_ratio < 4.5 and left_ratio > 4.5 :
+                    elif right_ratio < blink_th and left_ratio > blink_th:
                         print("I saw you blinking the left eye...")
-                    elif right_ratio > 4.5 and left_ratio > 4.5 :
+                    elif right_ratio > blink_th and left_ratio > blink_th:
                         print("I saw you blinking both eyes...")
-
 
                 # Flip the image horizontally for a selfie-view display.
                 cv2.imshow(wind_name, cv2.flip(frame, 1))
@@ -824,6 +814,7 @@ def train_vae(calibPath, drPath, n_map_component):
     print('VAE scaling values has been saved. You can continue with customization.')
 
 def load_bomi_map(dr_mode, drPath):
+
     if dr_mode == 'pca':
         map = pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values
     elif dr_mode == 'ae':
@@ -1083,6 +1074,13 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
     mp_holistic = mp.solutions.holistic
     holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                     smooth_landmarks=False)
+    # initialize Mediapipe FaceMesh
+    mp_face_mesh = mp.solutions.face_mesh
+    face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1,
+        refine_landmarks=True,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5)
+
 
     # load scaling values for covering entire monitor workspace
     rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
@@ -1169,10 +1167,31 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
             # if mouse checkbox was enabled do not draw the reaching GUI,
             # only change coordinates of the computer cursor !!!!!!!!!!!!!!!!!!!!!
             # [ADD CODE HERE] !!!!!!!!!!!!!!!!!!!!!
+
             if mouse_bool == True:
 
                 # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
                 mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
+
+                # Check for click detection
+                frame = q_frame.get()
+                results_face = face_mesh.process(frame)
+                if results_face.multi_face_landmarks:
+
+                    mesh_coords = landmarksDetection(frame, results_face, False)
+                    right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
+
+                    print(right_ratio, left_ratio)
+                    if right_ratio > blink_th and left_ratio < blink_th:
+                        print("I saw you blinking the right eye...")
+                        mouse.click('right')
+                    elif right_ratio < blink_th and left_ratio > blink_th:
+                        print("I saw you blinking the left eye...")
+                        mouse.click('left')
+                    elif right_ratio > blink_th and left_ratio > blink_th:
+                        print("I saw you blinking both eyes...")
+                        print("Dunno???")
+                    time.sleep(0.2)
 
             else:
 
