@@ -1192,9 +1192,9 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool):
                     elif right_ratio > blink_th and left_ratio > blink_th:
                         print("I saw you blinking both eyes...")
                         print("Disconnecting the mouse control!")
-                        mouse_bool = False
+                        r.is_terminated = True
                         time.sleep(1.0)
-                    time.sleep(0.2)
+                    time.sleep(0.1)
 
             else:
 
