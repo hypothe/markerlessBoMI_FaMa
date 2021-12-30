@@ -964,14 +964,14 @@ def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_boo
         cap = cv2.VideoCapture(video_device)
     except:
         cap = cv2.VideoCapture(0)
-        
+
     r = Reaching()
     filter_curs = FilterButter3("lowpass_4")
 
     # Open a new window
     size = (r.width, r.height)
     if mouse_bool == False:
-        screen = pygame.display.set_mode(size, pygame.NOFRAME)
+        screen = pygame.display.set_mode(size)
 
     else:
         print("Control the mouse")
@@ -1063,7 +1063,6 @@ def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_boo
             # apply BoMI forward map to body vector to obtain cursor position.
             r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
                 (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom)
-
             # Check if the crs is bouncing against any of the 4 walls:
 
             if mouse_bool == False:
@@ -1081,8 +1080,7 @@ def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_boo
             r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
 
             # if mouse checkbox was enabled do not draw the reaching GUI,
-            # only change coordinates of the computer cursor !!!!!!!!!!!!!!!!!!!!!
-            # [ADD CODE HERE] !!!!!!!!!!!!!!!!!!!!!
+            # only change coordinates of the computer cursor
             if mouse_bool == True:
 
                 # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
@@ -1132,6 +1130,7 @@ def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_boo
             clock.tick(50)
 
     # Once we have exited the main program loop, stop the game engine and release the capture
+    pygame.quit()
     print("game engine object released in practice.")
     # pose.close()
     holistic.close()
