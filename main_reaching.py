@@ -244,7 +244,7 @@ class MainApplication(tk.Frame):
         # This variable helps to check which joint to display
         self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
                                 self.check_forefinger.get(), self.check_fingers.get()]
-        compute_calibration(self, self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
+        self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
                             self.check_summary, self.video_camera_device)
         self.btn_map["state"] = "normal"
 
@@ -295,7 +295,7 @@ class MainApplication(tk.Frame):
             # open pygame and start reaching task
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            start_reaching(self, self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
+            self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
                             self.check_mouse.get(), self.video_camera_device)
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -305,6 +305,352 @@ class MainApplication(tk.Frame):
             self.w = popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
+
+    def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
+        """
+        function called to collect calibration data from webcam
+        :param drPath: path to save calibration file
+        :param calib_duration: duration of calibration as read by the textbox in the main window
+        :param lbl_calib: label in the main window that shows calibration time remaining
+        :return:
+        """
+        # Create object of openCV and Reaching (needed for terminating mediapipe thread)
+        # try using an external video source, if present
+        print("Using video device {}".format(video_device))
+
+        cap = VideoCaptureOpt(video_device)
+
+        #cv2.destroyAllWindows()
+        
+
+        r = Reaching()
+
+        # The clock will be used to control how fast the screen updates. Stopwatch to count calibration time elapsed
+        clock = pygame.time.Clock()
+        timer_calib = StopWatch()
+
+        # initialize MediaPipe Pose
+        mp_holistic = mp.solutions.holistic
+        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
+                                        smooth_landmarks=False)
+
+        # initialize lock for avoiding race conditions in threads
+        lock = Lock()
+        lockImageResults = Lock()
+
+        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        global body
+        body = np.zeros((num_joints,))  # initialize global variable
+        body_calib = []  # initialize local variable (list of body landmarks during calibration)
+
+        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
+        q_frame = queue.Queue()
+        cal = 1  # if cal==1 (meaning during calibration) the opencv thread will display the image
+        opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal, cap.get(cv2.CAP_PROP_FPS)))
+        opencv_thread.start()
+        print("openCV thread started in calibration.")
+
+        # initialize thread for mediapipe operations
+        mediapipe_thread = Thread(target=mediapipe_forwardpass,
+                                args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
+        mediapipe_thread.start()
+        print("mediapipe thread started in calibration.")
+
+        # start the timer for calibration
+        timer_calib.start()
+
+        print("main thread: Starting calibration...")
+
+        if not cap.isOpened():
+            raise IOError("Cannot open webcam")
+        wind_name = "Group 12 cam"
+        cv2.namedWindow(wind_name)
+
+        mp_drawing = mp.solutions.drawing_utils
+        mp_drawing_styles = mp.solutions.drawing_styles
+
+
+        while not r.is_terminated:
+
+            #success, frame = cap.read()
+            #if not success:
+            #    print("Ignoring empty camera frame.")
+                # If loading a video, use 'break' instead of 'continue'.
+            #    continue
+
+            # safe access to the current image and results, since they can
+            # be modified by the mediapipe_forwardpass thread
+            with lockImageResults:
+                frame = copy.deepcopy(self.current_image)
+                results = copy.deepcopy(self.results)
+
+            if frame is None or results is None:
+                continue
+            # Draw landmark annotation on the image.
+            frame.flags.writeable = True
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            if active_joints[1] == True:
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.face_landmarks,
+                    mp_holistic.FACEMESH_CONTOURS,
+                    landmark_drawing_spec=None,
+                    connection_drawing_spec=mp_drawing_styles
+                        .get_default_face_mesh_contours_style())
+            if (active_joints[0] == True) or (active_joints[2] == True):
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.pose_landmarks,
+                    mp_holistic.POSE_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
+            if (active_joints[3] == True) or (active_joints[4] == True):
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.left_hand_landmarks,
+                    mp_holistic.HAND_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
+                mp_drawing.draw_landmarks(
+                    frame,
+                    results.right_hand_landmarks,
+                    mp_holistic.HAND_CONNECTIONS,
+                    landmark_drawing_spec=mp_drawing_styles
+                        .get_default_pose_landmarks_style())
+            # Flip the image horizontally for a selfie-view display.
+            cv2.imshow(wind_name, frame)
+
+            if cv2.waitKey(1) == 27:
+                break  # esc to quit
+
+            if timer_calib.elapsed_time > calib_duration:
+                r.is_terminated = True
+
+            # get current value of body
+            body_calib.append(np.copy(body))
+
+            # update time elapsed label
+            time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
+            lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
+            lbl_calib.update()
+
+            # --- Limit to 50 frames per second
+            clock.tick(50)
+
+        cv2.destroyAllWindows()
+        # Stop the game engine and release the capture
+        holistic.close()
+        print("pose estimation object released in calibration.")
+        cap.release()
+        print("openCV object released in calibration.")
+
+        # print calibration file
+        body_calib = np.array(body_calib)
+        if not os.path.exists(drPath):
+            os.makedirs(drPath)
+        np.savetxt(drPath + "Calib.txt", body_calib)
+
+        print('Calibration finished. You can now train BoMI forward map.')
+    
+    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
+        """
+        function to perform online cursor control - practice
+        :param drPath: path where to load the BoMI forward map and customization values
+        :param check_mouse: tkinter Boolean value that triggers mouse control instead of reaching task
+        :param lbl_tgt: label in the main window that shows number of targets remaining
+        :return:
+        """
+        pygame.init()
+        if mouse_bool == True:
+            print("Mouse control active")
+        else:
+            print("Game active")
+
+        ############################################################
+
+        # Define some colors
+        BLACK = (0, 0, 0)
+        RED = (255, 0, 0)
+        GREEN = (0, 255, 0)
+        YELLOW = (255, 255, 0)
+        CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
+        # Create object of openCV, Reaching class and filter_butter3
+        cap = VideoCaptureOpt(video_device)
+
+        r = Reaching()
+        filter_curs = FilterButter3("lowpass_4")
+
+        # Open a new window
+        size = (r.width, r.height)
+        if mouse_bool == False:
+            screen = pygame.display.set_mode(size)
+
+        else:
+            print("Control the mouse")
+        # screen = pygame.display.toggle_fullscreen()
+
+        # The clock will be used to control how fast the screen updates
+        clock = pygame.time.Clock()
+
+        # Initialize stopwatch for counting time elapsed in the different states of the reaching
+        timer_enter_tgt = StopWatch()
+        timer_start_trial = StopWatch()
+        timer_practice = StopWatch()
+
+        # initialize targets and the reaching log file header
+        reaching_functions.initialize_targets(r)
+        reaching_functions.write_header(r)
+
+        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
+        map = load_bomi_map(dr_mode, drPath)
+
+        # initialize MediaPipe Pose
+        mp_holistic = mp.solutions.holistic
+        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
+                                        smooth_landmarks=False)
+
+        # load scaling values for covering entire monitor workspace
+        rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
+        scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
+        scale_dr = np.reshape(scale_dr, (scale_dr.shape[0],))
+        off_dr = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
+        off_dr = np.reshape(off_dr, (off_dr.shape[0],))
+        rot_custom = pd.read_csv(drPath + 'rotation_custom.txt', sep=' ', header=None).values
+        scale_custom = pd.read_csv(drPath + 'scale_custom.txt', sep=' ', header=None).values
+        scale_custom = np.reshape(scale_custom, (scale_custom.shape[0],))
+        off_custom = pd.read_csv(drPath + 'offset_custom.txt', sep=' ', header=None).values
+        off_custom = np.reshape(off_custom, (off_custom.shape[0],))
+
+        # initialize lock for avoiding race conditions in threads
+        lock = Lock()
+        lockImageResults = Lock()
+
+        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        global body
+        body = np.zeros((num_joints,))  # initialize global variable
+
+        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
+        q_frame = queue.Queue()
+        cal = 0
+        opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal))
+        opencv_thread.start()
+        print("openCV thread started in practice.")
+
+        # initialize thread for mediapipe operations
+        mediapipe_thread = Thread(target=mediapipe_forwardpass,
+                                args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
+        mediapipe_thread.start()
+        print("mediapipe thread started in practice.")
+
+        # initialize thread for writing reaching log file
+        wfile_thread = Thread(target=write_practice_files, args=(r, timer_practice))
+        timer_practice.start()  # start the timer for PracticeLog
+        wfile_thread.start()
+        print("writing reaching log file thread started in practice.")
+
+        print("cursor control thread is about to start...")
+
+        # -------- Main Program Loop -----------
+        while not r.is_terminated:
+            # --- Main event loop
+            for event in pygame.event.get():  # User did something
+                if event.type == pygame.QUIT:  # If user clicked close
+                    r.is_terminated = True  # Flag that we are done so we exit this loop
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_x:  # Pressing the x Key will quit the game
+                        r.is_terminated = True
+                    if event.key == pygame.K_p:  # Pressing the p Key will pause/resume the game
+                        reaching_functions.pause_acquisition(r, timer_practice)
+                    if event.key == pygame.K_SPACE:  # Pressing the space Key will click the mouse
+                        pyautogui.click(r.crs_x, r.crs_y)
+
+            if not r.is_paused:
+                # Copy old cursor position
+                r.old_crs_x = r.crs_x
+                r.old_crs_y = r.crs_y
+
+                # get current value of body
+                r.body = np.copy(body)
+
+                # apply BoMI forward map to body vector to obtain cursor position.
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom)
+                # Check if the crs is bouncing against any of the 4 walls:
+
+                if mouse_bool == False:
+
+                    if r.crs_x >= r.width:
+                        r.crs_x = r.width
+                    if r.crs_x <= 0:
+                        r.crs_x = 0
+                    if r.crs_y >= r.height:
+                        r.crs_y = 0
+                    if r.crs_y <= 0:
+                        r.crs_y = r.height
+
+                # Filter the cursor
+                r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
+
+                # if mouse checkbox was enabled do not draw the reaching GUI,
+                # only change coordinates of the computer cursor
+                if mouse_bool == True:
+
+                    # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
+                    mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
+
+                else:
+
+                    # Set target position to update the GUI
+                    reaching_functions.set_target_reaching(r)
+                    # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
+                    screen.fill(BLACK)
+                    # Do not show the cursor in the blind trials when the cursor is outside the home target
+                    if not r.is_blind:
+                        # draw cursor
+                        pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
+
+                    # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
+                    if r.state == 0:  # green
+                        pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                    elif r.state == 1:
+                        pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                    elif r.state == 2:  # yellow
+                        if r.is_blind:  # green again if blind trial
+                            pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                        else:  # yellow if not blind
+                            pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+
+                    # Display scores:
+                    font = pygame.font.Font(None, 80)
+                    text = font.render(str(r.score), True, RED)
+                    screen.blit(text, (1250, 10))
+
+                    # --- update the screen with what we've drawn.
+                    pygame.display.flip()
+
+                    # After showing the cursor, check whether cursor is in the target
+                    reaching_functions.check_target_reaching(r, timer_enter_tgt)
+                    # Then check if cursor stayed in the target for enough time
+                    reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
+
+                    # update label with number of targets remaining
+                    tgt_remaining = 248 - r.trial + 1
+                    lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
+                    lbl_tgt.update()
+
+                # --- Limit to 50 frames per second
+                clock.tick(50)
+
+        # Once we have exited the main program loop, stop the game engine and release the capture
+        pygame.quit()
+        print("game engine object released in practice.")
+        # pose.close()
+        holistic.close()
+        print("pose estimation object released in practice.")
+        cap.release()
+        cv2.destroyAllWindows()
+        print("openCV object released in practice.")
 
 
 class CustomizationApplication(tk.Frame):
@@ -422,161 +768,20 @@ class popupWindow(object):
     def cleanup(self):
         self.top.destroy()
 
+def check_available_videoio_backend(queryBackendName):
+    availableBackends = [cv2.videoio_registry.getBackendName(b) for b in cv2.videoio_registry.getCameraBackends()]
+    if queryBackendName in availableBackends:
+        return True
+    return False
 
-def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
-    """
-    function called to collect calibration data from webcam
-    :param drPath: path to save calibration file
-    :param calib_duration: duration of calibration as read by the textbox in the main window
-    :param lbl_calib: label in the main window that shows calibration time remaining
-    :return:
-    """
-    # Create object of openCV and Reaching (needed for terminating mediapipe thread)
-    # try using an external video source, if present
-    print("Using video device {}".format(video_device))
-
-    #cv2_OPENMODE = isinstance(video_device, int) and cv2.CAP_DSHOW or cv2.CAP_FFMPEG 
-    #print("Openmode {}".format(cv2_OPENMODE))
+def VideoCaptureOpt(videoSource):
+    videoioBackend =  check_available_videoio_backend('DSHOW') and cv2.CAP_DSHOW or cv2.CAP_ANY
     try:
-        cap = cv2.VideoCapture(video_device)#, cv2_OPENMODE)
+        cap = cv2.VideoCapture(videoSource, videoioBackend)#, cv2_OPENMODE)
     except:
-        print("Unable to open source at {}, defaulting to camera 0".format(video_device))
-        cap = cv2.VideoCapture(0) #, cv2.CAP_DSHOW)
-
-    #cv2.destroyAllWindows()
-    
-
-    r = Reaching()
-
-    # The clock will be used to control how fast the screen updates. Stopwatch to count calibration time elapsed
-    clock = pygame.time.Clock()
-    timer_calib = StopWatch()
-
-    # initialize MediaPipe Pose
-    mp_holistic = mp.solutions.holistic
-    holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                    smooth_landmarks=False)
-
-    # initialize lock for avoiding race conditions in threads
-    lock = Lock()
-    lockImageResults = Lock()
-
-    # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-    global body
-    body = np.zeros((num_joints,))  # initialize global variable
-    body_calib = []  # initialize local variable (list of body landmarks during calibration)
-
-    # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-    q_frame = queue.Queue()
-    cal = 1  # if cal==1 (meaning during calibration) the opencv thread will display the image
-    opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal, cap.get(cv2.CAP_PROP_FPS)))
-    opencv_thread.start()
-    print("openCV thread started in calibration.")
-
-    # initialize thread for mediapipe operations
-    mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
-    mediapipe_thread.start()
-    print("mediapipe thread started in calibration.")
-
-    # start the timer for calibration
-    timer_calib.start()
-
-    print("main thread: Starting calibration...")
-
-    if not cap.isOpened():
-        raise IOError("Cannot open webcam")
-    wind_name = "Group 12 cam"
-    cv2.namedWindow(wind_name)
-
-    mp_drawing = mp.solutions.drawing_utils
-    mp_drawing_styles = mp.solutions.drawing_styles
-
-    with mp_holistic.Holistic(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5) as holistic:
-
-        while not r.is_terminated:
-
-            #success, frame = cap.read()
-            #if not success:
-            #    print("Ignoring empty camera frame.")
-                # If loading a video, use 'break' instead of 'continue'.
-            #    continue
-
-            # safe access to the current image and results, since they can
-            # be modified by the mediapipe_forwardpass thread
-            with lockImageResults:
-                frame = copy.deepcopy(self.current_image)
-                results = copy.deepcopy(self.results)
-
-            if frame is None or results is None:
-                continue
-            # Draw landmark annotation on the image.
-            frame.flags.writeable = True
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            if active_joints[1] == True:
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.face_landmarks,
-                    mp_holistic.FACEMESH_CONTOURS,
-                    landmark_drawing_spec=None,
-                    connection_drawing_spec=mp_drawing_styles
-                        .get_default_face_mesh_contours_style())
-            if (active_joints[0] == True) or (active_joints[2] == True):
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.pose_landmarks,
-                    mp_holistic.POSE_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-            if (active_joints[3] == True) or (active_joints[4] == True):
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.left_hand_landmarks,
-                    mp_holistic.HAND_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-                mp_drawing.draw_landmarks(
-                    frame,
-                    results.right_hand_landmarks,
-                    mp_holistic.HAND_CONNECTIONS,
-                    landmark_drawing_spec=mp_drawing_styles
-                        .get_default_pose_landmarks_style())
-            # Flip the image horizontally for a selfie-view display.
-            cv2.imshow(wind_name, cv2.flip(frame, 1))
-
-            if cv2.waitKey(1) == 27:
-                break  # esc to quit
-
-            if timer_calib.elapsed_time > calib_duration:
-                r.is_terminated = True
-
-            # get current value of body
-            body_calib.append(np.copy(body))
-
-            # update time elapsed label
-            time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
-            lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
-            lbl_calib.update()
-
-            # --- Limit to 50 frames per second
-            clock.tick(50)
-
-        cv2.destroyAllWindows()
-        # Stop the game engine and release the capture
-        #holistic.close()
-        print("pose estimation object released in calibration.")
-        cap.release()
-        print("openCV object released in calibration.")
-
-        # print calibration file
-        body_calib = np.array(body_calib)
-        if not os.path.exists(drPath):
-            os.makedirs(drPath)
-        np.savetxt(drPath + "Calib.txt", body_calib)
-
-        print('Calibration finished. You can now train BoMI forward map.')
+        print("Unable to open source at {}, defaulting to camera 0".format(videoSource))
+        cap = cv2.VideoCapture(0, videoioBackend)
+    return cap
 
 
 def train_pca(calibPath, drPath, n_map_component):
@@ -756,10 +961,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
     """
 
     # Create object of openCV, Reaching class and filter_butter3
-    try:
-        cap = cv2.VideoCapture(video_device)
-    except:
-        cap = cv2.VideoCapture(0)
+    cap = VideoCaptureOpt(video_device)
 
     r = Reaching()
     reaching_functions.initialize_targets(r)
@@ -936,211 +1138,6 @@ def save_parameters(self, drPath):
 
     print('Customization values have been saved. You can continue with practice.')
 
-# [ADD CODE HERE: check_mouse as function input]
-def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
-    """
-    function to perform online cursor control - practice
-    :param drPath: path where to load the BoMI forward map and customization values
-    :param check_mouse: tkinter Boolean value that triggers mouse control instead of reaching task
-    :param lbl_tgt: label in the main window that shows number of targets remaining
-    :return:
-    """
-    pygame.init()
-    if mouse_bool == True:
-        print("Mouse control active")
-    else:
-        print("Game active")
-
-    ############################################################
-
-    # Define some colors
-    BLACK = (0, 0, 0)
-    RED = (255, 0, 0)
-    GREEN = (0, 255, 0)
-    YELLOW = (255, 255, 0)
-    CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
-
-    # Create object of openCV, Reaching class and filter_butter3
-    try:
-        cap = cv2.VideoCapture(video_device)
-    except:
-        cap = cv2.VideoCapture(0)
-
-    r = Reaching()
-    filter_curs = FilterButter3("lowpass_4")
-
-    # Open a new window
-    size = (r.width, r.height)
-    if mouse_bool == False:
-        screen = pygame.display.set_mode(size)
-
-    else:
-        print("Control the mouse")
-    # screen = pygame.display.toggle_fullscreen()
-
-    # The clock will be used to control how fast the screen updates
-    clock = pygame.time.Clock()
-
-    # Initialize stopwatch for counting time elapsed in the different states of the reaching
-    timer_enter_tgt = StopWatch()
-    timer_start_trial = StopWatch()
-    timer_practice = StopWatch()
-
-    # initialize targets and the reaching log file header
-    reaching_functions.initialize_targets(r)
-    reaching_functions.write_header(r)
-
-    # load BoMI forward map parameters for converting body landmarks into cursor coordinates
-    map = load_bomi_map(dr_mode, drPath)
-
-    # initialize MediaPipe Pose
-    mp_holistic = mp.solutions.holistic
-    holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                    smooth_landmarks=False)
-
-    # load scaling values for covering entire monitor workspace
-    rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-    scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-    scale_dr = np.reshape(scale_dr, (scale_dr.shape[0],))
-    off_dr = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-    off_dr = np.reshape(off_dr, (off_dr.shape[0],))
-    rot_custom = pd.read_csv(drPath + 'rotation_custom.txt', sep=' ', header=None).values
-    scale_custom = pd.read_csv(drPath + 'scale_custom.txt', sep=' ', header=None).values
-    scale_custom = np.reshape(scale_custom, (scale_custom.shape[0],))
-    off_custom = pd.read_csv(drPath + 'offset_custom.txt', sep=' ', header=None).values
-    off_custom = np.reshape(off_custom, (off_custom.shape[0],))
-
-    # initialize lock for avoiding race conditions in threads
-    lock = Lock()
-    lockImageResults = Lock()
-
-    # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-    global body
-    body = np.zeros((num_joints,))  # initialize global variable
-
-    # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-    q_frame = queue.Queue()
-    cal = 0
-    opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal))
-    opencv_thread.start()
-    print("openCV thread started in practice.")
-
-    # initialize thread for mediapipe operations
-    mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
-    mediapipe_thread.start()
-    print("mediapipe thread started in practice.")
-
-    # initialize thread for writing reaching log file
-    wfile_thread = Thread(target=write_practice_files, args=(r, timer_practice))
-    timer_practice.start()  # start the timer for PracticeLog
-    wfile_thread.start()
-    print("writing reaching log file thread started in practice.")
-
-    print("cursor control thread is about to start...")
-
-    # -------- Main Program Loop -----------
-    while not r.is_terminated:
-        # --- Main event loop
-        for event in pygame.event.get():  # User did something
-            if event.type == pygame.QUIT:  # If user clicked close
-                r.is_terminated = True  # Flag that we are done so we exit this loop
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_x:  # Pressing the x Key will quit the game
-                    r.is_terminated = True
-                if event.key == pygame.K_p:  # Pressing the p Key will pause/resume the game
-                    reaching_functions.pause_acquisition(r, timer_practice)
-                if event.key == pygame.K_SPACE:  # Pressing the space Key will click the mouse
-                    pyautogui.click(r.crs_x, r.crs_y)
-
-        if not r.is_paused:
-            # Copy old cursor position
-            r.old_crs_x = r.crs_x
-            r.old_crs_y = r.crs_y
-
-            # get current value of body
-            r.body = np.copy(body)
-
-            # apply BoMI forward map to body vector to obtain cursor position.
-            r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom)
-            # Check if the crs is bouncing against any of the 4 walls:
-
-            if mouse_bool == False:
-
-                if r.crs_x >= r.width:
-                    r.crs_x = r.width
-                if r.crs_x <= 0:
-                    r.crs_x = 0
-                if r.crs_y >= r.height:
-                    r.crs_y = 0
-                if r.crs_y <= 0:
-                    r.crs_y = r.height
-
-            # Filter the cursor
-            r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
-
-            # if mouse checkbox was enabled do not draw the reaching GUI,
-            # only change coordinates of the computer cursor
-            if mouse_bool == True:
-
-                # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
-                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
-
-            else:
-
-                # Set target position to update the GUI
-                reaching_functions.set_target_reaching(r)
-                # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
-                screen.fill(BLACK)
-                # Do not show the cursor in the blind trials when the cursor is outside the home target
-                if not r.is_blind:
-                    # draw cursor
-                    pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
-
-                # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
-                if r.state == 0:  # green
-                    pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                elif r.state == 1:
-                    pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                elif r.state == 2:  # yellow
-                    if r.is_blind:  # green again if blind trial
-                        pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                    else:  # yellow if not blind
-                        pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-
-                # Display scores:
-                font = pygame.font.Font(None, 80)
-                text = font.render(str(r.score), True, RED)
-                screen.blit(text, (1250, 10))
-
-                # --- update the screen with what we've drawn.
-                pygame.display.flip()
-
-                # After showing the cursor, check whether cursor is in the target
-                reaching_functions.check_target_reaching(r, timer_enter_tgt)
-                # Then check if cursor stayed in the target for enough time
-                reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
-
-                # update label with number of targets remaining
-                tgt_remaining = 248 - r.trial + 1
-                lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
-                lbl_tgt.update()
-
-            # --- Limit to 50 frames per second
-            clock.tick(50)
-
-    # Once we have exited the main program loop, stop the game engine and release the capture
-    pygame.quit()
-    print("game engine object released in practice.")
-    # pose.close()
-    holistic.close()
-    print("pose estimation object released in practice.")
-    cap.release()
-    cv2.destroyAllWindows()
-    print("openCV object released in practice.")
-
-
 def get_data_from_camera(cap, q_frame, r, cal, fps=120):
     '''
     function that runs in the thread to capture current frame and put it into the queue
@@ -1149,6 +1146,11 @@ def get_data_from_camera(cap, q_frame, r, cal, fps=120):
     :param r: object of Reaching class
     :return:
     '''
+    # check for possible incorrectly represented fps values
+    # (<FIX> some camera reporting fps = 0)
+    if fps <= 0:
+        fps = 120
+    
     interframe_delay = float(1.0/fps)
     while not r.is_terminated:
         start_time = time.time()
@@ -1180,20 +1182,20 @@ def mediapipe_forwardpass(self, holistic, mp_holistic, lock, lockImageResults, q
     global body
     while not r.is_terminated:
         if not r.is_paused:
-            # not sure if we want to put try/catch here, just in case "ask forgiveness, not permission"
             # try:
-            # get current frame from thread
+            # get current frame from thread 
             try:
-                curr_frame = q_frame.get()
+                # wait as the queue might be empty just due to fast
+                # consumption, not for the end of the stream
+                curr_frame = q_frame.get(block=True, timeout=1.0)
                 body_list = []
-                # Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
-                self.current_image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
-            except:
-                r.is_terminated = True
-                print("Capture ended early")
+            except queue.Empty:
+                pass
             else:
-                # To improve performance, optionally mark the image as not writeable to pass by reference.
                 with lockImageResults:
+                    # Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
+                    self.current_image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
+                    # To improve performance, optionally mark the image as not writeable to pass by reference.
                     self.current_image.flags.writeable = False
                     self.results = holistic.process(self.current_image)
 
@@ -1229,9 +1231,7 @@ def mediapipe_forwardpass(self, holistic, mp_holistic, lock, lockImageResults, q
                 q_frame.queue.clear()
                 with lock:
                     body = np.copy(body_mp)
-                # except:
-                #     print('Expection in mediapipe_forwardpass. Closing thread')
-                #     r.is_terminated = True
+                    
     print('Mediapipe_forwardpass thread terminated.')
 
 
@@ -1260,21 +1260,51 @@ def write_practice_files(r, timer_practice):
 
     print('Writing reaching log file thread terminated.')
 
+# WORKAROUND in order to get the correct screen resolution in a
+# multi-screen setup
+def get_curr_screen_geometry():
+    """
+    Workaround to get the size of the current screen in a multi-screen setup.
 
-# CODE STARTS HERE
+    Returns:
+        geometry (str): The standard Tk geometry string.
+            [width]x[height]+[left]+[top]
+    """
+    root = tk.Tk()
+    root.update_idletasks()
+    root.attributes('-fullscreen', True)
+    #root.attributes('-alpha', 0.1)
+    root.state('iconic')
+    geometry = root.winfo_geometry()
+    root.destroy()
+    return geometry
+
+def get_window_res_from_geometry(geomStr):
+    geo = [s.split('+') for s in geomStr.split('x')]
+    geo = [it for its in geo for it in its]
+    return (int(geo[0]), int(geo[1]))
+
+
+# MAIN
 if __name__ == "__main__":
     # initialize mainApplication tkinter window
     win = tk.Tk()
     win.title("BoMI Settings")
 
-    user32 = ctypes.windll.user32
-    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    #user32 = ctypes.windll.user32
+    #screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
-    window_width = math.ceil(screensize[0] / 1.2)
-    window_height = math.ceil(screensize[1] / 1.2)
+    #screen_width = win.winfo_screenwidth()
+    #screen_height = win.winfo_screenheight()
 
-    screen_width = win.winfo_screenwidth()
-    screen_height = win.winfo_screenheight()
+    screensize = get_window_res_from_geometry(get_curr_screen_geometry())
+    
+    screen_width = screensize[0]
+    screen_height = screensize[1]
+
+    window_width = math.ceil(screen_width / 1.2)
+    window_height = math.ceil(screen_height / 1.2)
+
 
     x_cordinate = int((screen_width / 2) - (window_width / 2))
     y_cordinate = int((screen_height / 2) - (window_height / 2))
