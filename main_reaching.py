@@ -20,6 +20,7 @@ from tkinter.messagebox import showinfo
 import pygame
 # For reaching task
 from reaching import Reaching
+import reaching
 from stopwatch import StopWatch
 from filter_butter_online import FilterButter3
 import reaching_functions
@@ -34,6 +35,7 @@ from compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_va
 import ctypes
 import math
 import mouse
+import copy
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
@@ -57,6 +59,8 @@ class MainApplication(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
 
         self.video_camera_device = 0 # -> 0 for the camera
+        self.current_image = None
+        self.results = None
 
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.parent = parent
@@ -103,7 +107,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 30000 #30000
+        self.calib_duration = 10000 #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(parent, text='Calibration time: ')
@@ -240,7 +244,7 @@ class MainApplication(tk.Frame):
         # This variable helps to check which joint to display
         self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
                                 self.check_forefinger.get(), self.check_fingers.get()]
-        compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
+        compute_calibration(self, self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
                             self.check_summary, self.video_camera_device)
         self.btn_map["state"] = "normal"
 
@@ -291,7 +295,7 @@ class MainApplication(tk.Frame):
             # open pygame and start reaching task
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
+            start_reaching(self, self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
                             self.check_mouse.get(), self.video_camera_device)
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -419,7 +423,7 @@ class popupWindow(object):
         self.top.destroy()
 
 
-def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
+def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
     """
     function called to collect calibration data from webcam
     :param drPath: path to save calibration file
@@ -439,7 +443,7 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
         print("Unable to open source at {}, defaulting to camera 0".format(video_device))
         cap = cv2.VideoCapture(0) #, cv2.CAP_DSHOW)
 
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
     r = Reaching()
 
@@ -454,6 +458,7 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
     # initialize lock for avoiding race conditions in threads
     lock = Lock()
+    lockImageResults = Lock()
 
     # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
     global body
@@ -469,7 +474,7 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
     # initialize thread for mediapipe operations
     mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
     mediapipe_thread.start()
     print("mediapipe thread started in calibration.")
 
@@ -492,15 +497,20 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
         while not r.is_terminated:
 
-            success, frame = cap.read()
-            if not success:
-                print("Ignoring empty camera frame.")
+            #success, frame = cap.read()
+            #if not success:
+            #    print("Ignoring empty camera frame.")
                 # If loading a video, use 'break' instead of 'continue'.
-                continue
+            #    continue
 
-            frame.flags.writeable = False
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = holistic.process(frame)
+            # safe access to the current image and results, since they can
+            # be modified by the mediapipe_forwardpass thread
+            with lockImageResults:
+                frame = copy.deepcopy(self.current_image)
+                results = copy.deepcopy(self.results)
+
+            if frame is None or results is None:
+                continue
             # Draw landmark annotation on the image.
             frame.flags.writeable = True
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -540,7 +550,6 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
 
             if timer_calib.elapsed_time > calib_duration:
                 r.is_terminated = True
-                cv2.destroyAllWindows()
 
             # get current value of body
             body_calib.append(np.copy(body))
@@ -553,11 +562,11 @@ def compute_calibration(drPath, calib_duration, lbl_calib, num_joints, joints, a
             # --- Limit to 50 frames per second
             clock.tick(50)
 
+        cv2.destroyAllWindows()
         # Stop the game engine and release the capture
-        holistic.close()
+        #holistic.close()
         print("pose estimation object released in calibration.")
         cap.release()
-        cv2.destroyAllWindows()
         print("openCV object released in calibration.")
 
         # print calibration file
@@ -750,7 +759,10 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
         cap = cv2.VideoCapture(video_device)
     except:
         cap = cv2.VideoCapture(0)
+
     r = Reaching()
+    reaching_functions.initialize_targets(r)
+    
     filter_curs = FilterButter3("lowpass_4")
     # load BoMI forward map parameters for converting body landmarks into cursor coordinates
     map = load_bomi_map(dr_mode, drPath)
@@ -769,6 +781,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
 
     # initialize lock for avoiding race conditions in threads
     lock = Lock()
+    lockImageResults = Lock()
 
     # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
     global body
@@ -783,7 +796,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
 
     # initialize thread for mediapipe operations
     mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
     mediapipe_thread.start()
     print("mediapipe thread started in customization.")
 
@@ -799,7 +812,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
 
     # Open a new window
     size = (r.width, r.height)
-    screen = pygame.display.set_mode(size, pygame.NOFRAME)
+    screen = pygame.display.set_mode(size)
     # screen = pygame.display.toggle_fullscreen()
 
     # -------- Main Program Loop -----------
@@ -808,6 +821,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
         for event in pygame.event.get():  # User did something
             if event.type == pygame.QUIT:  # If user clicked close
                 r.is_terminated = True  # Flstart_reac
+            elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:  # Pressing the space Key will click the mouse
                     pyautogui.click(r.crs_x, r.crs_y)
 
@@ -922,7 +936,7 @@ def save_parameters(self, drPath):
     print('Customization values have been saved. You can continue with practice.')
 
 # [ADD CODE HERE: check_mouse as function input]
-def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
+def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
     """
     function to perform online cursor control - practice
     :param drPath: path where to load the BoMI forward map and customization values
@@ -935,7 +949,6 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, vid
         print("Mouse control active")
     else:
         print("Game active")
-    # [ADD CODE HERE] get value from checkbox - is mouse enabled? !!!!!!!!!!!!!!!!!!!
 
     ############################################################
 
@@ -947,7 +960,11 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, vid
     CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 
     # Create object of openCV, Reaching class and filter_butter3
-    cap = cv2.VideoCapture(video_device)
+    try:
+        cap = cv2.VideoCapture(video_device)
+    except:
+        cap = cv2.VideoCapture(0)
+        
     r = Reaching()
     filter_curs = FilterButter3("lowpass_4")
 
@@ -994,6 +1011,7 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, vid
 
     # initialize lock for avoiding race conditions in threads
     lock = Lock()
+    lockImageResults = Lock()
 
     # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
     global body
@@ -1008,7 +1026,7 @@ def start_reaching(drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, vid
 
     # initialize thread for mediapipe operations
     mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
     mediapipe_thread.start()
     print("mediapipe thread started in practice.")
 
@@ -1144,7 +1162,7 @@ def get_data_from_camera(cap, q_frame, r, cal):
     print('OpenCV thread terminated.')
 
 
-def mediapipe_forwardpass(holistic, mp_holistic, lock, q_frame, r, num_joints, joints):
+def mediapipe_forwardpass(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints):
     """
     function that runs in the thread for estimating pose online
     :param pose: object of Mediapipe class used to predict poses
@@ -1164,42 +1182,43 @@ def mediapipe_forwardpass(holistic, mp_holistic, lock, q_frame, r, num_joints, j
                 curr_frame = q_frame.get()
                 body_list = []
                 # Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
-                image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
+                self.current_image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
             except:
                 r.is_terminated = True
                 print("Capture ended early")
             else:
                 # To improve performance, optionally mark the image as not writeable to pass by reference.
-                image.flags.writeable = False
-                results = holistic.process(image)
+                with lockImageResults:
+                    self.current_image.flags.writeable = False
+                    self.results = holistic.process(self.current_image)
 
-                if not results.pose_landmarks:
+                if not self.results.pose_landmarks:
                     continue
                 if joints[0, 0] == 1:
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
                 if joints[1, 0] == 1:
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
                 if joints[2, 0] == 1:
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
-                    body_list.append(results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
+                    body_list.append(self.results.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
                 if joints[3, 0] == 1 or joints[4, 0] == 1:
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
                 if joints[4, 0] == 1:
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
-                    body_list.append(results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
+                    body_list.append(self.results.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
 
                 body_mp = np.array(body_list)
                 q_frame.queue.clear()
