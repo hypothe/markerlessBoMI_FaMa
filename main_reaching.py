@@ -444,6 +444,7 @@ def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joi
         cap = cv2.VideoCapture(0) #, cv2.CAP_DSHOW)
 
     #cv2.destroyAllWindows()
+    
 
     r = Reaching()
 
@@ -468,7 +469,7 @@ def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joi
     # start thread for OpenCV. current frame will be appended in a queue in a separate thread
     q_frame = queue.Queue()
     cal = 1  # if cal==1 (meaning during calibration) the opencv thread will display the image
-    opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal))
+    opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal, cap.get(cv2.CAP_PROP_FPS)))
     opencv_thread.start()
     print("openCV thread started in calibration.")
 
@@ -1140,7 +1141,7 @@ def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_boo
     print("openCV object released in practice.")
 
 
-def get_data_from_camera(cap, q_frame, r, cal):
+def get_data_from_camera(cap, q_frame, r, cal, fps=120):
     '''
     function that runs in the thread to capture current frame and put it into the queue
     :param cap: object of OpenCV class
@@ -1148,7 +1149,9 @@ def get_data_from_camera(cap, q_frame, r, cal):
     :param r: object of Reaching class
     :return:
     '''
+    interframe_delay = float(1.0/fps)
     while not r.is_terminated:
+        start_time = time.time()
         if not r.is_paused:
             try:
                 ret, frame = cap.read()
@@ -1156,8 +1159,11 @@ def get_data_from_camera(cap, q_frame, r, cal):
             # TODO: why does the video, lasting 30 secs, end almost 10 secs before?
             except:
                 r.is_terminated = True
-            # if cal == 1:
-            #    cv2.imshow('current frame', frame)
+        # consume the source at the correct frequecy      
+        end_time = time.time()
+        
+        time.sleep(max(0, interframe_delay - (end_time - start_time)))
+
     print('OpenCV thread terminated.')
 
 
