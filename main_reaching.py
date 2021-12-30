@@ -168,6 +168,11 @@ class MainApplication(tk.Frame):
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=5, column=1, pady=(20, 30), sticky='w')
 
+        self.active_kb = BooleanVar()
+        self.check_kb1 = Checkbutton(win, text="External Key", variable=self.active_kb)
+        self.check_kb1.config(font=("Arial", self.font_size))
+        self.check_kb1.grid(row=5, column=2, pady=(20, 30), sticky='w')
+
         #############################################################
 
         self.btn_close = Button(parent, text="Close", command=parent.destroy, bg="red")
@@ -843,7 +848,7 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints):
     """
 
     # Create object of openCV, Reaching class and filter_butter3
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0) # , cv2.CAP_DSHOW)
     r = Reaching()
     filter_curs = FilterButter3("lowpass_4")
 
