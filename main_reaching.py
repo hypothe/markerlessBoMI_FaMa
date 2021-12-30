@@ -1267,11 +1267,14 @@ if __name__ == "__main__":
     win = tk.Tk()
     win.title("BoMI Settings")
 
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+    window_width = math.ceil(screensize[0] / 1.2)
+    window_height = math.ceil(screensize[1] / 1.2)
+
     screen_width = win.winfo_screenwidth()
     screen_height = win.winfo_screenheight()
-
-    window_width = math.ceil(screen_width / 1.7)
-    window_height = math.ceil(screen_height / 1.7)
 
     x_cordinate = int((screen_width / 2) - (window_width / 2))
     y_cordinate = int((screen_height / 2) - (window_height / 2))
