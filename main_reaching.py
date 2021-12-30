@@ -575,7 +575,7 @@ class MainApplication(tk.Frame):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom)
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 if mouse_bool == False:
@@ -1061,15 +1061,24 @@ def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_de
             except:
                 oy_custom = 0
 
+            # EDIT
+            #print("Off: [{},{}] mousePos: [{},{}]".format(off[0], off[1], r.crs_x, r.crs_y))
+            # normalize before transformation
+            r.crs_x -= r.width/2.0
+            r.crs_y -= r.height/2.0
+
             # Applying rotation
-            r.crs_x = r.crs_x * np.cos(np.pi / 180 * rot_custom) - r.crs_y * np.sin(np.pi / 180 * rot_custom)
-            r.crs_y = r.crs_x * np.sin(np.pi / 180 * rot_custom) + r.crs_y * np.cos(np.pi / 180 * rot_custom)
+            #print("PREROT: mousePos: [{},{}]".format(r.crs_x, r.crs_y))
+            # edit: screen space is left-handed! remember that in rotation!
+            r.crs_x, r.crs_y = reaching_functions.rotate_xy_LH([r.crs_x, r.crs_y], rot_custom)
+            #print("POSTROT: mousePos: [{},{}]".format(r.crs_x, r.crs_y))
+
             # Applying scale
             r.crs_x = r.crs_x * gx_custom
             r.crs_y = r.crs_y * gy_custom
             # Applying offset
-            r.crs_x = r.crs_x + ox_custom
-            r.crs_y = r.crs_y + oy_custom
+            r.crs_x = r.crs_x + ox_custom + r.width/2.0
+            r.crs_y = r.crs_y + oy_custom + r.height/2.0
 
             # Limit cursor workspace
             if r.crs_x >= r.width:
@@ -1231,7 +1240,7 @@ def mediapipe_forwardpass(self, holistic, mp_holistic, lock, lockImageResults, q
                 q_frame.queue.clear()
                 with lock:
                     body = np.copy(body_mp)
-                    
+
     print('Mediapipe_forwardpass thread terminated.')
 
 
