@@ -221,6 +221,10 @@ Figure 8. Start the reaching task.
 # The Docker Image
 
 A docker image is hosted at [hypothe/bomi_fama](https://hub.docker.com/repository/docker/hypothe/bomi_fama), which includes a complete environment with all the dependencies needed to run the contents of this repository.
+To launch the image execute one of the two scripts presented at the end of the dir `docker_run_scripts`, choosing `run_bomi.sh` on Unix systems and `run_bomi_wsl.sh` on WSL2 running systems.
+
+> If your docker environment complain for GPU-related prameters of the docker run remove the *--gups all* and *--env NVIDIA_DRIVER_CAPABILITIES='graphics,compute,utility'* options from the command. Right now the instance of MediaPipe used does not leverage GPU acceleration in the forward pass, nor does the AutoEncoder in the training, so removing those options should not cause issues. But be aware that things might change, althought that will probably end up in its own branch.
+
 Said image pulls from the `nocam-fix` branch of this repository (*this will change as soon as that content will be moved into the `main` stable branch), and includes the possibility to use an external video source instead of a camera device.
 This, while not directly useful, allows to have repeatable tests with the same source (and eases the development process, not requiring the developers to move their head around for ~30 seconds each time they need to test the system).
 To use an external video file record it with whichever program of your choice (eg. `ffmpeg` on Unix, `Camera` app on Windows) and then move it inside the container with the following command:
