@@ -498,7 +498,6 @@ class MainApplication(tk.Frame):
                 elif right_ratio > blink_th and left_ratio > blink_th:
                     print("I saw you blinking both eyes...")
 
-
             # Flip the image horizontally for a selfie-view display.
             cv2.imshow(wind_name, frame)
 
