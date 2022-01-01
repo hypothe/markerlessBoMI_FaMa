@@ -1,3 +1,7 @@
+#!/bin/bash
+
+# This script launches the container with the necessary flags on a Unix machine
+
 xhost +local:docker
 docker run \
     --privileged -it --rm --gpus all \
