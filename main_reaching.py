@@ -36,11 +36,27 @@ import ctypes
 import math
 import mouse
 import copy
+from blinkdetector_utils import *
+
+#########
+# INPUT #
+#########
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
+blink_th = 6.0
+calibration_time = 10000    # [ms] Clibration time
+
+# Define some colors
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
 # TODO
 # calib_duration to be set back to 30000
+# check why the tk button window goes back after opening (Windows only)
 
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
   return offset + L / (1 + math.exp(k*(x0-x)))
@@ -50,6 +66,20 @@ def doubleSigmoid(x):
         return sigmoid(x, L=0.5, k=12, x0=-0.5, offset=-0.5)
     else:
         return sigmoid(x, L=0.5, k=12, x0=0.5, offset=0.)
+
+def landmarksDetection(img, results, draw=False):
+    # landmark detection function
+
+    img_height, img_width = img.shape[:2]
+    # list[(x,y), (x,y)....]
+    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in
+                  results.multi_face_landmarks[0].landmark]
+    if draw:
+        [cv2.circle(img, p, 2, GREEN, -1) for p in mesh_coord]
+
+    # returning the list of tuples for each landmarks
+    return mesh_coord
+
 
 class MainApplication(tk.Frame):
     """
@@ -107,7 +137,7 @@ class MainApplication(tk.Frame):
         self.btn_calib["state"] = "disabled"
         self.btn_calib.config(font=("Arial", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
-        self.calib_duration = 10000 #30000
+        self.calib_duration = calibration_time #30000
 
         # Calibration time remaining
         self.lbl_calib = Label(parent, text='Calibration time: ')
@@ -165,10 +195,16 @@ class MainApplication(tk.Frame):
         self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
+            # Mouse
         self.check_mouse = BooleanVar()
         self.check_m1 = Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
+            # Keyboard
+        self.active_kb = BooleanVar()
+        self.check_kb1 = Checkbutton(win, text="External Key", variable=self.active_kb)
+        self.check_kb1.config(font=("Arial", self.font_size))
+        self.check_kb1.grid(row=5, column=2, pady=(20, 30), sticky='w')
 
         #############################################################
 
@@ -248,6 +284,7 @@ class MainApplication(tk.Frame):
                             self.check_summary, self.video_camera_device)
         self.btn_map["state"] = "normal"
 
+
     def train_map(self):
         # check whether calibration file exists first
         if os.path.isfile(self.calibPath + "Calib.txt"):
@@ -300,11 +337,11 @@ class MainApplication(tk.Frame):
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
         else:
             self.w = popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
+
 
     def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
         """
@@ -320,8 +357,7 @@ class MainApplication(tk.Frame):
 
         cap = VideoCaptureOpt(video_device)
 
-        #cv2.destroyAllWindows()
-        
+        # cv2.destroyAllWindows()
 
         r = Reaching()
 
@@ -331,8 +367,13 @@ class MainApplication(tk.Frame):
 
         # initialize MediaPipe Pose
         mp_holistic = mp.solutions.holistic
+        # initalize MediaPipe face detection
+        mp_face_mesh = mp.solutions.face_mesh
+
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                         smooth_landmarks=False)
+        face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5,
+                                        min_tracking_confidence=0.5)
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
@@ -368,7 +409,6 @@ class MainApplication(tk.Frame):
 
         mp_drawing = mp.solutions.drawing_utils
         mp_drawing_styles = mp.solutions.drawing_styles
-
 
         while not r.is_terminated:
 
@@ -417,6 +457,48 @@ class MainApplication(tk.Frame):
                     mp_holistic.HAND_CONNECTIONS,
                     landmark_drawing_spec=mp_drawing_styles
                         .get_default_pose_landmarks_style())
+
+            # Add eyes
+            # Draw the face mesh annotations on the image.
+            frame.flags.writeable = True
+            results_face = face_mesh.process(frame)
+            if results_face.multi_face_landmarks:
+                for face_landmarks in results_face.multi_face_landmarks:
+                    # mp_drawing.draw_landmarks(
+                    #   image=frame,
+                    #  landmark_list=face_landmarks,
+                    # connections=mp_face_mesh.FACEMESH_TESSELATION,
+                    # landmark_drawing_spec=None,
+                    # connection_drawing_spec=mp_drawing_styles
+                    #   .get_default_face_mesh_tesselation_style())
+                    mp_drawing.draw_landmarks(
+                        image=frame,
+                        landmark_list=face_landmarks,
+                        connections=mp_face_mesh.FACEMESH_CONTOURS,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=mp_drawing_styles
+                            .get_default_face_mesh_contours_style())
+                    mp_drawing.draw_landmarks(
+                        image=frame,
+                        landmark_list=face_landmarks,
+                        connections=mp_face_mesh.FACEMESH_IRISES,
+                        landmark_drawing_spec=None,
+                        connection_drawing_spec=mp_drawing_styles
+                            .get_default_face_mesh_iris_connections_style())
+
+                mesh_coords = landmarksDetection(frame, results_face, False)
+                right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
+
+                print(right_ratio, left_ratio)
+
+                if right_ratio > blink_th and left_ratio < blink_th:
+                    print("I saw you blinking the right eye...")
+                elif right_ratio < blink_th and left_ratio > blink_th:
+                    print("I saw you blinking the left eye...")
+                elif right_ratio > blink_th and left_ratio > blink_th:
+                    print("I saw you blinking both eyes...")
+
+
             # Flip the image horizontally for a selfie-view display.
             cv2.imshow(wind_name, frame)
 
@@ -510,6 +592,13 @@ class MainApplication(tk.Frame):
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                         smooth_landmarks=False)
 
+        # initialize Mediapipe FaceMesh
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1,
+                                          refine_landmarks=True,
+                                          min_detection_confidence=0.5,
+                                          min_tracking_confidence=0.5)
+
         # load scaling values for covering entire monitor workspace
         rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
         scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
@@ -597,7 +686,30 @@ class MainApplication(tk.Frame):
                 if mouse_bool == True:
 
                     # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
-                    mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
+                    mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1 / 50)
+
+                    # Check for click detection
+                    frame = q_frame.get()
+                    results_face = face_mesh.process(frame)
+                    if results_face.multi_face_landmarks:
+
+                        mesh_coords = landmarksDetection(frame, results_face, False)
+                        right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
+
+                        print(right_ratio, left_ratio)
+                        if right_ratio > blink_th and left_ratio < blink_th:
+                            print("I saw you blinking the right eye...")
+                            mouse.click('right')
+                            time.sleep(1.0)
+                        elif right_ratio < blink_th and left_ratio > blink_th:
+                            print("I saw you blinking the left eye...")
+                            mouse.click('left')
+                            time.sleep(1.0)
+                        elif right_ratio > blink_th and left_ratio > blink_th:
+                            print("I saw you blinking both eyes...")
+                            print("Disconnecting the mouse control!")
+                            r.is_terminated = True
+                            time.sleep(1.0)
 
                 else:
 

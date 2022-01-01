@@ -102,7 +102,8 @@ def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
     # edit: screen space is left-handed! remember that in rotation!
     return rotate_xy_RH(xy, -rot)
 
-def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_max):
+def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width,
+                           win_height):
 
     if type(map) != tuple:
         cu = np.dot(body, map)
