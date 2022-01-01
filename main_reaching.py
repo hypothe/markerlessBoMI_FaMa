@@ -39,9 +39,6 @@ import copy
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
-# TODO
-# calib_duration to be set back to 30000
-
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
   return offset + L / (1 + math.exp(k*(x0-x)))
 
@@ -371,12 +368,6 @@ class MainApplication(tk.Frame):
 
 
         while not r.is_terminated:
-
-            #success, frame = cap.read()
-            #if not success:
-            #    print("Ignoring empty camera frame.")
-                # If loading a video, use 'break' instead of 'continue'.
-            #    continue
 
             # safe access to the current image and results, since they can
             # be modified by the mediapipe_forwardpass thread
@@ -748,10 +739,201 @@ class CustomizationApplication(tk.Frame):
         initialize_customization(self, self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
 
     def save_parameters(self):
-        save_parameters(self, self.drPath)
+        save_custom_parameters(self, self.drPath)
         self.parent.destroy()
         self.mainTk.btn_start["state"] = "normal"
 
+    def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
+        """
+        initialize objects needed for online cursor control. Start all the customization threads as well
+        :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
+        :param drPath: path to load the BoMI forward map
+        :return:
+        """
+
+        # Create object of openCV, Reaching class and filter_butter3
+        cap = VideoCaptureOpt(video_device)
+
+        r = Reaching()
+        reaching_functions.initialize_targets(r)
+        
+        filter_curs = FilterButter3("lowpass_4")
+        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
+        map = load_bomi_map(dr_mode, drPath)
+
+        # initialize MediaPipe Pose
+        mp_holistic = mp.solutions.holistic
+        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
+                                        smooth_landmarks=False)
+
+        # load scaling values saved after training AE for covering entire monitor workspace
+        rot = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
+        scale = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
+        scale = np.reshape(scale, (scale.shape[0],))
+        off = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
+        off = np.reshape(off, (off.shape[0],))
+
+        # initialize lock for avoiding race conditions in threads
+        lock = Lock()
+        lockImageResults = Lock()
+
+        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        global body
+        body = np.zeros((num_joints,))  # initialize global variable
+
+        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
+        q_frame = queue.Queue()
+        cal = 0
+        opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal))
+        opencv_thread.start()
+        print("openCV thread started in customization.")
+
+        # initialize thread for mediapipe operations
+        mediapipe_thread = Thread(target=mediapipe_forwardpass,
+                                args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
+        mediapipe_thread.start()
+        print("mediapipe thread started in customization.")
+
+        # Define some colors
+        BLACK = (0, 0, 0)
+        GREEN = (0, 255, 0)
+        CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
+        pygame.init()
+
+        # The clock will be used to control how fast the screen updates
+        clock = pygame.time.Clock()
+
+        # Open a new window
+        size = (r.width, r.height)
+        screen = pygame.display.set_mode(size)
+        # screen = pygame.display.toggle_fullscreen()
+
+        # -------- Main Program Loop -----------
+        while not r.is_terminated:
+            # --- Main event loop
+            for event in pygame.event.get():  # User did something
+                if event.type == pygame.QUIT:  # If user clicked close
+                    r.is_terminated = True  # Flstart_reac
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:  # Pressing the space Key will click the mouse
+                        pyautogui.click(r.crs_x, r.crs_y)
+
+            if not r.is_paused:
+                # Copy old cursor position
+                r.old_crs_x = r.crs_x
+                r.old_crs_y = r.crs_y
+
+                # get current value of body
+                r.body = np.copy(body)
+
+                # apply BoMI forward map to body vector to obtain cursor position
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off)
+
+                # Apply extra customization according to textbox values (try/except allows to catch invalid inputs)
+                try:
+                    rot_custom = int(self.retrieve_txt_rot())
+                except:
+                    rot_custom = 0
+                try:
+                    gx_custom = float(self.retrieve_txt_gx())
+                except:
+                    gx_custom = 1.0
+                try:
+                    gy_custom = float(self.retrieve_txt_gy())
+                except:
+                    gy_custom = 1.0
+                try:
+                    ox_custom = int(self.retrieve_txt_ox())
+                except:
+                    ox_custom = 0
+                try:
+                    oy_custom = int(self.retrieve_txt_oy())
+                except:
+                    oy_custom = 0
+
+                
+                # normalize before transformation
+                r.crs_x -= r.width/2.0
+                r.crs_y -= r.height/2.0
+
+                # Applying rotation
+                # edit: screen space is left-handed! remember that in rotation!
+                r.crs_x, r.crs_y = reaching_functions.rotate_xy_LH([r.crs_x, r.crs_y], rot_custom)
+
+                # Applying scale
+                r.crs_x = r.crs_x * gx_custom
+                r.crs_y = r.crs_y * gy_custom
+                # Applying offset
+                r.crs_x = r.crs_x + ox_custom + r.width/2.0
+                r.crs_y = r.crs_y + oy_custom + r.height/2.0
+
+                # Limit cursor workspace
+                if r.crs_x >= r.width:
+                    r.crs_x = r.width
+                if r.crs_x <= 0:
+                    r.crs_x = 0
+                if r.crs_y >= r.height:
+                    r.crs_y = 0
+                if r.crs_y <= 0:
+                    r.crs_y = r.height
+
+                # Filter the cursor
+                r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
+
+                # Set target position to update the GUI
+                reaching_functions.set_target_reaching_customization(r)
+
+                # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
+                screen.fill(BLACK)
+
+                # draw cursor
+                pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
+
+                # draw each test target
+                for i in range(8):
+                    tgt_x = r.tgt_x_list[r.list_tgt[i]]
+                    tgt_y = r.tgt_y_list[r.list_tgt[i]]
+                    pygame.draw.circle(screen, GREEN, (int(tgt_x), int(tgt_y)), r.tgt_radius, 2)
+
+                # --- update the screen with what we've drawn.
+                pygame.display.flip()
+
+                # --- Limit to 50 frames per second
+                clock.tick(50)
+
+        # Once we have exited the main program loop, stop the game engine and release the capture
+        pygame.quit()
+        print("game engine object released in customization.")
+        holistic.close()
+        print("pose estimation object released terminated in customization.")
+        cap.release()
+        cv2.destroyAllWindows()
+        print("openCV object released in customization.")
+
+    def save_custom_parameters(self, drPath):
+        """
+        function to save customization values
+        :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
+        :param drPath: path where to load the BoMI forward map
+        :return:
+        """
+        # retrieve values stored in the textbox
+        rot = int(self.retrieve_txt_rot())
+        gx_custom = float(self.retrieve_txt_gx())
+        gy_custom = float(self.retrieve_txt_gy())
+        scale = [gx_custom, gy_custom]
+        ox_custom = int(self.retrieve_txt_ox())
+        oy_custom = int(self.retrieve_txt_oy())
+        off = [ox_custom, oy_custom]
+
+        # save customization values
+        with open(drPath + "rotation_custom.txt", 'w') as f:
+            print(rot, file=f)
+        np.savetxt(drPath + "scale_custom.txt", scale)
+        np.savetxt(drPath + "offset_custom.txt", off)
+
+        print('Customization values have been saved. You can continue with practice.')
 
 class popupWindow(object):
     """
@@ -952,200 +1134,6 @@ def load_bomi_map(dr_mode, drPath):
     return map
 
 
-def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
-    """
-    initialize objects needed for online cursor control. Start all the customization threads as well
-    :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
-    :param drPath: path to load the BoMI forward map
-    :return:
-    """
-
-    # Create object of openCV, Reaching class and filter_butter3
-    cap = VideoCaptureOpt(video_device)
-
-    r = Reaching()
-    reaching_functions.initialize_targets(r)
-    
-    filter_curs = FilterButter3("lowpass_4")
-    # load BoMI forward map parameters for converting body landmarks into cursor coordinates
-    map = load_bomi_map(dr_mode, drPath)
-
-    # initialize MediaPipe Pose
-    mp_holistic = mp.solutions.holistic
-    holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                    smooth_landmarks=False)
-
-    # load scaling values saved after training AE for covering entire monitor workspace
-    rot = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-    scale = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-    scale = np.reshape(scale, (scale.shape[0],))
-    off = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-    off = np.reshape(off, (off.shape[0],))
-
-    # initialize lock for avoiding race conditions in threads
-    lock = Lock()
-    lockImageResults = Lock()
-
-    # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-    global body
-    body = np.zeros((num_joints,))  # initialize global variable
-
-    # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-    q_frame = queue.Queue()
-    cal = 0
-    opencv_thread = Thread(target=get_data_from_camera, args=(cap, q_frame, r, cal))
-    opencv_thread.start()
-    print("openCV thread started in customization.")
-
-    # initialize thread for mediapipe operations
-    mediapipe_thread = Thread(target=mediapipe_forwardpass,
-                              args=(self, holistic, mp_holistic, lock, lockImageResults, q_frame, r, num_joints, joints))
-    mediapipe_thread.start()
-    print("mediapipe thread started in customization.")
-
-    # Define some colors
-    BLACK = (0, 0, 0)
-    GREEN = (0, 255, 0)
-    CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
-
-    pygame.init()
-
-    # The clock will be used to control how fast the screen updates
-    clock = pygame.time.Clock()
-
-    # Open a new window
-    size = (r.width, r.height)
-    screen = pygame.display.set_mode(size)
-    # screen = pygame.display.toggle_fullscreen()
-
-    # -------- Main Program Loop -----------
-    while not r.is_terminated:
-        # --- Main event loop
-        for event in pygame.event.get():  # User did something
-            if event.type == pygame.QUIT:  # If user clicked close
-                r.is_terminated = True  # Flstart_reac
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:  # Pressing the space Key will click the mouse
-                    pyautogui.click(r.crs_x, r.crs_y)
-
-        if not r.is_paused:
-            # Copy old cursor position
-            r.old_crs_x = r.crs_x
-            r.old_crs_y = r.crs_y
-
-            # get current value of body
-            r.body = np.copy(body)
-
-            # apply BoMI forward map to body vector to obtain cursor position
-            r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off)
-
-            # Apply extra customization according to textbox values (try/except allows to catch invalid inputs)
-            try:
-                rot_custom = int(self.retrieve_txt_rot())
-            except:
-                rot_custom = 0
-            try:
-                gx_custom = float(self.retrieve_txt_gx())
-            except:
-                gx_custom = 1.0
-            try:
-                gy_custom = float(self.retrieve_txt_gy())
-            except:
-                gy_custom = 1.0
-            try:
-                ox_custom = int(self.retrieve_txt_ox())
-            except:
-                ox_custom = 0
-            try:
-                oy_custom = int(self.retrieve_txt_oy())
-            except:
-                oy_custom = 0
-
-            # EDIT
-            #print("Off: [{},{}] mousePos: [{},{}]".format(off[0], off[1], r.crs_x, r.crs_y))
-            # normalize before transformation
-            r.crs_x -= r.width/2.0
-            r.crs_y -= r.height/2.0
-
-            # Applying rotation
-            #print("PREROT: mousePos: [{},{}]".format(r.crs_x, r.crs_y))
-            # edit: screen space is left-handed! remember that in rotation!
-            r.crs_x, r.crs_y = reaching_functions.rotate_xy_LH([r.crs_x, r.crs_y], rot_custom)
-            #print("POSTROT: mousePos: [{},{}]".format(r.crs_x, r.crs_y))
-
-            # Applying scale
-            r.crs_x = r.crs_x * gx_custom
-            r.crs_y = r.crs_y * gy_custom
-            # Applying offset
-            r.crs_x = r.crs_x + ox_custom + r.width/2.0
-            r.crs_y = r.crs_y + oy_custom + r.height/2.0
-
-            # Limit cursor workspace
-            if r.crs_x >= r.width:
-                r.crs_x = r.width
-            if r.crs_x <= 0:
-                r.crs_x = 0
-            if r.crs_y >= r.height:
-                r.crs_y = 0
-            if r.crs_y <= 0:
-                r.crs_y = r.height
-
-            # Filter the cursor
-            r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
-
-            # Set target position to update the GUI
-            reaching_functions.set_target_reaching_customization(r)
-
-            # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
-            screen.fill(BLACK)
-
-            # draw cursor
-            pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
-
-            # draw each test target
-            for i in range(8):
-                tgt_x = r.tgt_x_list[r.list_tgt[i]]
-                tgt_y = r.tgt_y_list[r.list_tgt[i]]
-                pygame.draw.circle(screen, GREEN, (int(tgt_x), int(tgt_y)), r.tgt_radius, 2)
-
-            # --- update the screen with what we've drawn.
-            pygame.display.flip()
-
-            # --- Limit to 50 frames per second
-            clock.tick(50)
-
-    # Once we have exited the main program loop, stop the game engine and release the capture
-    pygame.quit()
-    print("game engine object released in customization.")
-    holistic.close()
-    print("pose estimation object released terminated in customization.")
-    cap.release()
-    cv2.destroyAllWindows()
-    print("openCV object released in customization.")
-
-def save_parameters(self, drPath):
-    """
-    function to save customization values
-    :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
-    :param drPath: path where to load the BoMI forward map
-    :return:
-    """
-    # retrieve values stored in the textbox
-    rot = int(self.retrieve_txt_rot())
-    gx_custom = float(self.retrieve_txt_gx())
-    gy_custom = float(self.retrieve_txt_gy())
-    scale = [gx_custom, gy_custom]
-    ox_custom = int(self.retrieve_txt_ox())
-    oy_custom = int(self.retrieve_txt_oy())
-    off = [ox_custom, oy_custom]
-
-    # save customization values
-    with open(drPath + "rotation_custom.txt", 'w') as f:
-        print(rot, file=f)
-    np.savetxt(drPath + "scale_custom.txt", scale)
-    np.savetxt(drPath + "offset_custom.txt", off)
-
-    print('Customization values have been saved. You can continue with practice.')
 
 def get_data_from_camera(cap, q_frame, r, cal, fps=120):
     '''
@@ -1167,7 +1155,6 @@ def get_data_from_camera(cap, q_frame, r, cal, fps=120):
             try:
                 ret, frame = cap.read()
                 q_frame.put(frame)
-            # TODO: why does the video, lasting 30 secs, end almost 10 secs before?
             except:
                 r.is_terminated = True
         # consume the source at the correct frequecy      
