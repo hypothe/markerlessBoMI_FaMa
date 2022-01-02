@@ -37,6 +37,7 @@ import math
 import mouse
 import copy
 from blinkdetector_utils import *
+from keyboard_utils import *
 
 #########
 # INPUT #
@@ -58,14 +59,22 @@ CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 # calib_duration to be set back to 30000
 # check why the tk button window goes back after opening (Windows only)
 
+
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
   return offset + L / (1 + math.exp(k*(x0-x)))
+
 
 def doubleSigmoid(x):
     if x < 0:
         return sigmoid(x, L=0.5, k=12, x0=-0.5, offset=-0.5)
     else:
         return sigmoid(x, L=0.5, k=12, x0=0.5, offset=0.)
+
+
+def raise_above_all(window):
+    window.lift()
+    window.attributes('-topmost', True)
+    window.attributes('-topmost', False)
 
 def landmarksDetection(img, results, draw=False):
     # landmark detection function
@@ -201,10 +210,10 @@ class MainApplication(tk.Frame):
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
             # Keyboard
-        self.active_kb = BooleanVar()
-        self.check_kb1 = Checkbutton(win, text="External Key", variable=self.active_kb)
+        self.check_kb = BooleanVar()
+        self.check_kb1 = Checkbutton(win, text="External Key", variable=self.check_kb)
         self.check_kb1.config(font=("Arial", self.font_size))
-        self.check_kb1.grid(row=5, column=2, pady=(20, 30), sticky='w')
+        self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w')
 
         #############################################################
 
@@ -333,7 +342,7 @@ class MainApplication(tk.Frame):
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
             self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
-                            self.check_mouse.get(), self.video_camera_device)
+                            self.check_mouse.get(), self.check_kb.get(), self.video_camera_device)
             # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
             # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -533,11 +542,12 @@ class MainApplication(tk.Frame):
 
         print('Calibration finished. You can now train BoMI forward map.')
     
-    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
+    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, keyboard_bool, video_device=0):
         """
         function to perform online cursor control - practice
         :param drPath: path where to load the BoMI forward map and customization values
-        :param check_mouse: tkinter Boolean value that triggers mouse control instead of reaching task
+        :param mouse_bool: tkinter Boolean value that triggers mouse control instead of reaching task
+        :param keyboard_bool: tkinter Boolean value that activates the digital keyboard
         :param lbl_tgt: label in the main window that shows number of targets remaining
         :return:
         """
@@ -569,6 +579,10 @@ class MainApplication(tk.Frame):
 
         else:
             print("Control the mouse")
+
+            if keyboard_bool == True:
+                print("Digit your message!")
+                keyboard_interface()
         # screen = pygame.display.toggle_fullscreen()
 
         # The clock will be used to control how fast the screen updates
@@ -707,7 +721,7 @@ class MainApplication(tk.Frame):
                         elif right_ratio > blink_th and left_ratio > blink_th:
                             print("I saw you blinking both eyes...")
                             print("Disconnecting the mouse control!")
-                            r.is_terminated = True
+                            mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1 / 50)
                             time.sleep(1.0)
 
                 else:
@@ -1410,12 +1424,7 @@ if __name__ == "__main__":
     # initialize mainApplication tkinter window
     win = tk.Tk()
     win.title("BoMI Settings")
-
-    #user32 = ctypes.windll.user32
-    #screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-
-    #screen_width = win.winfo_screenwidth()
-    #screen_height = win.winfo_screenheight()
+    raise_above_all(win)
 
     screensize = get_window_res_from_geometry(get_curr_screen_geometry())
     
@@ -1424,7 +1433,6 @@ if __name__ == "__main__":
 
     window_width = math.ceil(screen_width / 1.2)
     window_height = math.ceil(screen_height / 1.2)
-
 
     x_cordinate = int((screen_width / 2) - (window_width / 2))
     y_cordinate = int((screen_height / 2) - (window_height / 2))
