@@ -48,6 +48,10 @@ class SharedDetImage:
         self.result = None
         self.lock = Lock()
 
+class BodyWrap:
+    def __init__(self):
+        self.body = None
+
 class JointMapper(tk.Frame):
     """
     class that defines the main tkinter window --> graphic with buttons etc..
@@ -60,7 +64,7 @@ class JointMapper(tk.Frame):
         #self.results = None
 
         self.current_image_data = SharedDetImage()
-        self.body = None
+        self.body_wrap = BodyWrap()
 
         tk.Frame.__init__(self, win, *args, **kwargs)
         self.parent = win
@@ -321,7 +325,7 @@ class JointMapper(tk.Frame):
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        self.body = np.zeros((num_joints,))  # initialize global variable
+        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
         body_calib = []  # initialize local variable (list of body landmarks during calibration)
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
@@ -333,7 +337,7 @@ class JointMapper(tk.Frame):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
         mediapipe_thread.start()
         print("mediapipe thread started in calibration.")
 
@@ -402,7 +406,7 @@ class JointMapper(tk.Frame):
                 r.is_terminated = True
 
             # get current value of body
-            body_calib.append(np.copy(self.body))
+            body_calib.append(np.copy(self.body_wrap.body))
 
             # update time elapsed label
             time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
@@ -442,7 +446,7 @@ class CustomizationApplication(tk.Frame):
         self.video_camera_device = video_camera_device
         self.current_image_data = SharedDetImage()
 
-        self.body = None
+        self.body_wrap = BodyWrap()
 
         tk.Frame.__init__(self, parent)
         self.parent = parent
@@ -566,7 +570,7 @@ class CustomizationApplication(tk.Frame):
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        self.body = np.zeros((num_joints,))  # initialize global variable
+        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -577,7 +581,7 @@ class CustomizationApplication(tk.Frame):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
         mediapipe_thread.start()
         print("mediapipe thread started in customization.")
 
@@ -612,7 +616,7 @@ class CustomizationApplication(tk.Frame):
                 r.old_crs_y = r.crs_y
 
                 # get current value of body
-                r.body = np.copy(self.body)
+                r.body = np.copy(self.body_wrap.body)
 
                 # apply BoMI forward map to body vector to obtain cursor position
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off)

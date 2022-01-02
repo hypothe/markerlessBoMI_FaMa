@@ -133,7 +133,7 @@ class BoMIReaching(JointMapper):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
 

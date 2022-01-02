@@ -3,7 +3,7 @@ import cv2
 import queue
 import numpy as np
 
-def mediapipe_forwardpass(image_data, body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints):
+def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints):
 	"""
 	function that runs in the thread for estimating pose online
 	:param pose: object of Mediapipe class used to predict poses
@@ -63,6 +63,6 @@ def mediapipe_forwardpass(image_data, body, holistic, mp_holistic, lock, q_frame
 							body_mp = np.array(body_list)
 							q_frame.queue.clear()
 							with lock:
-									body = np.copy(body_mp)
+									body_wrap.body = np.copy(body_mp)
 
 	print('Mediapipe_forwardpass thread terminated.')
