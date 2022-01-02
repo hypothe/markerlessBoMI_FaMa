@@ -23,7 +23,7 @@ class Reaching:
         self._target = 0
         self._state = 0
         self._comeback = 1
-        with open(os.path.dirname(os.path.abspath(__file__)) + '/targets/circle_coadapt.txt', 'r') as f:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/../targets/circle_coadapt.txt', 'r') as f:
             list_tgt_tmp = f.read().splitlines()
         self._list_tgt = [int(x) for x in list_tgt_tmp]
         self._score = 0
@@ -46,7 +46,7 @@ class Reaching:
         self._tgt_y_list = []
 
         # file parameters
-        self._path_log = os.path.dirname(os.path.abspath(__file__)) + "/Practice/"
+        self._path_log = os.path.dirname(os.path.abspath(__file__)) + "/../Practice/"
 
     # pygame parameters
     @property

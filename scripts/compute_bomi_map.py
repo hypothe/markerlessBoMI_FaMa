@@ -34,6 +34,17 @@ import datetime
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+import math
+
+## utility functions 
+def sigmoid(x, L=1, k=1, x0=0, offset=0):
+  return offset + L / (1 + math.exp(k*(x0-x)))
+
+def doubleSigmoid(x):
+    if x < 0:
+        return sigmoid(x, L=0.5, k=12, x0=-0.5, offset=-0.5)
+    else:
+        return sigmoid(x, L=0.5, k=12, x0=0.5, offset=0.)
 
 def compute_vaf(x, x_rec):
     """
