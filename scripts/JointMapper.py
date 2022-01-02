@@ -256,24 +256,33 @@ class JointMapper(tk.Frame):
 
             if self.check_alg.get() == 0:
                 self.drPath = self.calibPath + 'PCA/'
-                train_pca(self.calibPath, self.drPath, self.n_map_component)
+                train_cu = train_pca(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'pca'
 
             elif self.check_alg.get() == 1:
                 self.drPath = self.calibPath + 'AE/'
-                train_ae(self.calibPath, self.drPath, self.n_map_component)
+                train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
 
             elif self.check_alg.get() == 2:
                 self.drPath = self.calibPath + 'AE/'
-                train_ae(self.calibPath, self.drPath, self.n_map_component)
+                train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
+
+            # rotate, scale and offset the original features
+            # implementation-dependant (depends on the workspace of
+            # each variable, eg. screen space vs. joint space)
+            # DEBUG
+            ##self.map_to_workspace(self.calibPath, train_cu)
 
             self.btn_custom["state"] = "normal"
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform calibration first.")
             self.master.wait_window(self.w.top)
             self.btn_map["state"] = "disabled"
+
+    def map_to_workspace(self, drPath, train_cu):
+        pass
 
     def customization(self):
         # check whether PCA/AE parameters have been saved
@@ -564,6 +573,8 @@ class CustomizationApplication(tk.Frame):
         scale = np.reshape(scale, (scale.shape[0],))
         off = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
         off = np.reshape(off, (off.shape[0],))
+
+        print("SCALE: {}".format(scale))
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()

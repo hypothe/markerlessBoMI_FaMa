@@ -883,10 +883,6 @@ def train_pca(calibPath, drPath, n_pc):
     # save weights and biases
     if not os.path.exists(drPath):
         os.makedirs(drPath)
-
-    # DEBUG: pca print
-    print("###  PCA components ###")
-    print(pca.components_)
     
     np.savetxt(drPath + "weights1.txt", pca.components_[:, :n_pc])
 
@@ -898,9 +894,9 @@ def train_pca(calibPath, drPath, n_pc):
 
     # normalize latent space to fit the monitor coordinates
     # Applying rotation
-    plot_map = False
+    train_pc = np.dot(train_x, pca.components_[:, :n_pc])
+    plot_map = True
     if plot_map:
-        train_pc = np.dot(train_x, pca.components_[:, :n_pc])
         rot = 0
         train_pc[0] = train_pc[0] * np.cos(np.pi / 180 * rot) - train_pc[1] * np.sin(np.pi / 180 * rot)
         train_pc[1] = train_pc[0] * np.sin(np.pi / 180 * rot) + train_pc[1] * np.cos(np.pi / 180 * rot)
@@ -927,6 +923,7 @@ def train_pca(calibPath, drPath, n_pc):
         print('PCA scaling values has been saved.')
         
     print('You can continue with customization.')
+    return train_pc
 
 
 def train_ae(calibPath, drPath, n_map_component):
@@ -1011,6 +1008,7 @@ def train_ae(calibPath, drPath, n_map_component):
         print('AE scaling values has been saved.')
 
     print('You can continue with customization.')
+    return train_cu
 
 def load_bomi_map(dr_mode, drPath):
     if dr_mode == 'pca':

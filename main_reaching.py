@@ -32,6 +32,26 @@ class BoMIReaching(JointMapper):
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
 
+    def map_to_workspace(self, drPath, train_cu):
+        r = Reaching()
+
+        rot = 0
+        train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
+        # Applying scale
+        scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
+        train_cu = train_cu * scale
+        # Applying offset
+        off = [r.width / 2 - np.mean(train_cu[:, 0]), r.height / 2 - np.mean(train_cu[:, 1])]
+        train_cu = train_cu + off
+
+        # save PCA scaling values
+        print("CALIBPATH {}".format(drPath))
+        with open(drPath + "rotation_dr.txt", 'w') as f:
+            print(rot, file=f)
+        np.savetxt(drPath + "scale_dr.txt", scale)
+        np.savetxt(drPath + "offset_dr.txt", off)
+        
+        print("Screen-space affine tranformation done")
 
     def start(self):
         # check whether customization parameters have been saved
@@ -119,10 +139,9 @@ class BoMIReaching(JointMapper):
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
-        lockImageResults = Lock()
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-        self.body = np.zeros((num_joints,))  # initialize global variable
+        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -165,7 +184,7 @@ class BoMIReaching(JointMapper):
                 r.old_crs_y = r.crs_y
 
                 # get current value of body
-                r.body = np.copy(self.body)
+                r.body = np.copy(self.body_wrap.body)
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \

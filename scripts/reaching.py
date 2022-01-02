@@ -261,10 +261,6 @@ class Reaching:
         return self._path_log
 
 
-
-
-
-
 def write_practice_files(r, timer_practice):
     """
     function that runs in the thread for writing reaching log in a file
