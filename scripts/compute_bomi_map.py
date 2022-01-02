@@ -29,12 +29,15 @@ from tensorflow.keras import backend as K
 
 # Common imports
 from sklearn.decomposition import PCA
+import pandas as pd
 import numpy as np
 import datetime
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import math
+from scripts.reaching import Reaching
+import matplotlib.pyplot as plt
 
 ## utility functions 
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
@@ -849,5 +852,183 @@ class PrincipalComponentAnalysis(object):
 
 
 
+def train_pca(calibPath, drPath, n_pc):
+    """
+    function to train BoMI forward map - PCA
+    :param drPath: path to save BoMI forward map
+    :return:
+    """
+    r = Reaching()
+    # read calibration file and remove all the initial zero rows
+    xp = list(pd.read_csv(calibPath + 'Calib.txt', sep=' ', header=None).values)
+    x = [i for i in xp if all(i)]
+    x = np.array(x)
 
+    # randomly shuffle input
+    np.random.shuffle(x)
+
+    # define train/test split
+    thr = 80
+    split = int(len(x) * thr / 100)
+    train_x = x[0:split, :]
+    test_x = x[split:, :]
+
+    # initialize object of class PCA
+    PCA = PrincipalComponentAnalysis(n_pc)
+
+    # train PCA
+    pca, train_x_rec, train_pc, test_x_rec, test_pc = PCA.train_pca(train_x, x_test=test_x)
+    print('PCA has been trained.')
+
+    # save weights and biases
+    if not os.path.exists(drPath):
+        os.makedirs(drPath)
+
+    # DEBUG: pca print
+    print("###  PCA components ###")
+    print(pca.components_)
+    
+    np.savetxt(drPath + "weights1.txt", pca.components_[:, :n_pc])
+
+    print('BoMI forward map (PCA parameters) has been saved.')
+
+    # compute train/test VAF
+    print(f'Training VAF: {compute_vaf(train_x, train_x_rec)}')
+    print(f'Test VAF: {compute_vaf(test_x, test_x_rec)}')
+
+    # normalize latent space to fit the monitor coordinates
+    # Applying rotation
+    plot_map = False
+    if plot_map:
+        train_pc = np.dot(train_x, pca.components_[:, :n_pc])
+        rot = 0
+        train_pc[0] = train_pc[0] * np.cos(np.pi / 180 * rot) - train_pc[1] * np.sin(np.pi / 180 * rot)
+        train_pc[1] = train_pc[0] * np.sin(np.pi / 180 * rot) + train_pc[1] * np.cos(np.pi / 180 * rot)
+        # Applying scale
+        scale = [r.width / np.ptp(train_pc[:, 0]), r.height / np.ptp(train_pc[:, 1])]
+        train_pc = train_pc * scale
+        # Applying offset
+        off = [r.width / 2 - np.mean(train_pc[:, 0]), r.height / 2 - np.mean(train_pc[:, 1])]
+        train_pc = train_pc + off
+
+        # Plot latent space
+        plt.figure()
+        plt.scatter(train_pc[:, 0], train_pc[:, 1], c='green', s=20)
+        plt.title('Projections in workspace')
+        plt.axis("equal")
+        plt.show()
+
+        # save PCA scaling values
+        with open(drPath + "rotation_dr.txt", 'w') as f:
+            print(rot, file=f)
+        np.savetxt(drPath + "scale_dr.txt", scale)
+        np.savetxt(drPath + "offset_dr.txt", off)
+
+        print('PCA scaling values has been saved.')
+        
+    print('You can continue with customization.')
+
+
+def train_ae(calibPath, drPath, n_map_component):
+    """
+    function to train BoMI forward map
+    :param drPath: path to save BoMI forward map
+    :return:
+    """
+    r = Reaching()
+
+    # Autoencoder parameters
+    n_steps = 3001
+    lr = 0.02
+    cu = n_map_component
+    nh1 = 6
+    activ = "tanh"
+
+    # read calibration file and remove all the initial zero rows
+    xp = list(pd.read_csv(calibPath + 'Calib.txt', sep=' ', header=None).values)
+    x = [i for i in xp if all(i)]
+    x = np.array(x)
+
+    # randomly shuffle input
+    np.random.shuffle(x)
+
+    # define train/test split
+    thr = 80
+    split = int(len(x) * thr / 100)
+    train_x = x[0:split, :]
+    test_x = x[split:, :]
+
+    # initialize object of class Autoencoder
+    AE = Autoencoder(n_steps, lr, cu, activation=activ, nh1=nh1, seed=0)
+
+    # train AE network
+    history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_network(train_x, x_test=test_x)
+    # history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_vae(train_x, beta=0.00035, x_test=test_x)
+    print('AE has been trained.')
+
+    # save weights and biases
+    if not os.path.exists(drPath):
+        os.makedirs(drPath)
+    for layer in range(3):
+        np.savetxt(drPath + "weights" + str(layer + 1) + ".txt", ws[layer])
+        np.savetxt(drPath + "biases" + str(layer + 1) + ".txt", bs[layer])
+
+    print('BoMI forward map (AE parameters) has been saved.')
+
+    # compute train/test VAF
+    print(f'Training VAF: {compute_vaf(train_x, train_x_rec)}')
+    print(f'Test VAF: {compute_vaf(test_x, test_x_rec)}')
+
+    # normalize latent space to fit the monitor coordinates
+    # Applying rotation
+    plot_ae = False
+    if plot_ae:
+        rot = 0
+        train_cu[0] = train_cu[0] * np.cos(np.pi / 180 * rot) - train_cu[1] * np.sin(np.pi / 180 * rot)
+        train_cu[1] = train_cu[0] * np.sin(np.pi / 180 * rot) + train_cu[1] * np.cos(np.pi / 180 * rot)
+        if cu == 3:
+            train_cu[2] = np.tanh(train_cu[2])
+        # Applying scale
+        scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
+        train_cu = train_cu * scale
+        # Applying offset
+        off = [r.width / 2 - np.mean(train_cu[:, 0]), r.height / 2 - np.mean(train_cu[:, 1])]
+        train_cu = train_cu + off
+
+        # Plot latent space
+        plt.figure()
+        plt.scatter(train_cu[:, 0], train_cu[:, 1], c='green', s=20)
+        plt.title('Projections in workspace')
+        plt.axis("equal")
+        plt.show()
+
+        # save AE scaling values
+        with open(drPath + "rotation_dr.txt", 'w') as f:
+            print(rot, file=f)
+        np.savetxt(drPath + "scale_dr.txt", scale)
+        np.savetxt(drPath + "offset_dr.txt", off)
+
+        print('AE scaling values has been saved.')
+
+    print('You can continue with customization.')
+
+def load_bomi_map(dr_mode, drPath):
+    if dr_mode == 'pca':
+        map = pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values
+    elif dr_mode == 'ae':
+        ws = []
+        bs = []
+        ws.append(pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values)
+        ws.append(pd.read_csv(drPath + 'weights2.txt', sep=' ', header=None).values)
+        ws.append(pd.read_csv(drPath + 'weights3.txt', sep=' ', header=None).values)
+        bs.append(pd.read_csv(drPath + 'biases1.txt', sep=' ', header=None).values)
+        bs[0] = bs[0].reshape((bs[0].size,))
+        bs.append(pd.read_csv(drPath + 'biases2.txt', sep=' ', header=None).values)
+        bs[1] = bs[1].reshape((bs[1].size,))
+        bs.append(pd.read_csv(drPath + 'biases3.txt', sep=' ', header=None).values)
+        bs[2] = bs[2].reshape((bs[2].size,))
+
+        map = (ws, bs)
+
+    return map
 

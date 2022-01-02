@@ -50,3 +50,19 @@ def win_init(win_title):
 	win.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
 
 	return win
+
+
+class popupWindow(object):
+    """
+    class that defines the popup tkinter window
+    """
+
+    def __init__(self, master, msg):
+        top = self.top = tk.Toplevel(master)
+        self.lbl = tk.Label(top, text=msg)
+        self.lbl.pack()
+        self.btn = tk.Button(top, text='Ok', command=self.cleanup)
+        self.btn.pack()
+
+    def cleanup(self):
+        self.top.destroy()

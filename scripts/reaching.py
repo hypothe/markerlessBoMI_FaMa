@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 
 class Reaching:
@@ -262,4 +263,30 @@ class Reaching:
 
 
 
+
+
+def write_practice_files(r, timer_practice):
+    """
+    function that runs in the thread for writing reaching log in a file
+    :param r: object of Reaching class
+    :param timer_practice: stopwatch that keeps track of elapsed time during reaching
+    :return:
+    """
+    while not r.is_terminated:
+        if not r.is_paused:
+            starttime = time.time()
+
+            log = str(timer_practice.elapsed_time) + "\t" + '\t'.join(map(str, r.body)) + "\t" + str(r.crs_x) + "\t" + \
+                  str(r.crs_y) + "\t" + str(r.block) + "\t" + \
+                  str(r.repetition) + "\t" + str(r.target) + "\t" + str(r.trial) + "\t" + str(r.state) + "\t" + \
+                  str(r.comeback) + "\t" + str(r.is_blind) + "\t" + str(r.at_home) + "\t" + str(r.count_mouse) + "\t" + \
+                  str(r.score) + "\n"
+
+            with open(r.path_log + "PracticeLog.txt", "a") as file_log:
+                file_log.write(log)
+
+            # write @ 50 Hz
+            time.sleep(0.033 - ((time.time() - starttime) % 0.033))
+
+    print('Writing reaching log file thread terminated.')
 
