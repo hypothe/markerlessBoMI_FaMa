@@ -161,7 +161,6 @@ class MainApplication(tk.Frame):
         self.btn_camClear.config(font=("Arial", self.font_size))
         self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
-        # !!!!!!!!!!!!! [ADD CODE HERE] Mouse control checkbox !!!!!!!!!!!!!
         self.check_mouse = BooleanVar()
         self.check_m1 = Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
         self.check_m1.config(font=("Arial", self.font_size))
@@ -177,7 +176,8 @@ class MainApplication(tk.Frame):
         filetypes = (
             ('all files', '*.*'),
             ('mp4', '*.mp4'),
-            ('mkv', '*.mkv')
+            ('mkv', '*.mkv'),
+            ('avi', '*.avi')
         )
         filename = fd.askopenfilename(
             title = 'Select a video',
@@ -250,22 +250,23 @@ class MainApplication(tk.Frame):
         if os.path.isfile(self.calibPath + "Calib.txt"):
             self.w = popupWindow(self.master, "You will now train BoMI map")
             self.master.wait_window(self.w.top)
-            # if self.check_pca.get():
             print(self.check_alg.get())
+
             if self.check_alg.get() == 0:
                 self.drPath = self.calibPath + 'PCA/'
                 train_pca(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'pca'
-            # elif self.check_ae.get():
+
             elif self.check_alg.get() == 1:
                 self.drPath = self.calibPath + 'AE/'
                 train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
-            #elif self.check_vae.get():
+
             elif self.check_alg.get() == 2:
                 self.drPath = self.calibPath + 'AE/'
                 train_ae(self.calibPath, self.drPath, self.n_map_component)
                 self.dr_mode = 'ae'
+
             self.btn_custom["state"] = "normal"
         else:
             self.w = popupWindow(self.master, "Perform calibration first.")
@@ -316,9 +317,6 @@ class MainApplication(tk.Frame):
         print("Using video device {}".format(video_device))
 
         cap = VideoCaptureOpt(video_device)
-
-        #cv2.destroyAllWindows()
-        
 
         r = Reaching()
 
@@ -998,6 +996,11 @@ def train_pca(calibPath, drPath, n_map_component):
     # save weights and biases
     if not os.path.exists(drPath):
         os.makedirs(drPath)
+
+    # DEBUG: pca print
+    print("###  PCA components ###")
+    print(pca.components_)
+    
     np.savetxt(drPath + "weights1.txt", pca.components_[:, :2])
 
     print('BoMI forward map (PCA parameters) has been saved.')
