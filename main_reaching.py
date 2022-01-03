@@ -729,7 +729,6 @@ class MainApplication(tk.Frame):
                             main_app.check_m1.deselect()
                             main_app.check_m1.update()
                             mouse_bool = False
-                            # time.sleep(50.0)
 
                 else:
 
