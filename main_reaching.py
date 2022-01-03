@@ -551,6 +551,8 @@ class MainApplication(tk.Frame):
         :param lbl_tgt: label in the main window that shows number of targets remaining
         :return:
         """
+        global main_app
+
         pygame.init()
         if mouse_bool == True:
             print("Mouse control active")
@@ -582,7 +584,6 @@ class MainApplication(tk.Frame):
 
             if keyboard_bool == True:
                 print("Digit your message!")
-                keyboard_interface()
         # screen = pygame.display.toggle_fullscreen()
 
         # The clock will be used to control how fast the screen updates
@@ -653,6 +654,9 @@ class MainApplication(tk.Frame):
 
         print("cursor control thread is about to start...")
 
+        if keyboard_bool == True:
+            keyboard_interface()
+
         # -------- Main Program Loop -----------
         while not r.is_terminated:
             # --- Main event loop
@@ -709,6 +713,7 @@ class MainApplication(tk.Frame):
                         mesh_coords = landmarksDetection(frame, results_face, False)
                         right_ratio, left_ratio = blink_ratio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
 
+                        assert isinstance(right_ratio, object)
                         print(right_ratio, left_ratio)
                         if right_ratio > blink_th and left_ratio < blink_th:
                             print("I saw you blinking the right eye...")
@@ -721,8 +726,10 @@ class MainApplication(tk.Frame):
                         elif right_ratio > blink_th and left_ratio > blink_th:
                             print("I saw you blinking both eyes...")
                             print("Disconnecting the mouse control!")
-                            mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1 / 50)
-                            time.sleep(1.0)
+                            main_app.check_m1.deselect()
+                            main_app.check_m1.update()
+                            mouse_bool = False
+                            # time.sleep(50.0)
 
                 else:
 
@@ -1421,6 +1428,9 @@ def get_window_res_from_geometry(geomStr):
 
 # MAIN
 if __name__ == "__main__":
+
+    global main_app
+
     # initialize mainApplication tkinter window
     win = tk.Tk()
     win.title("BoMI Settings")
@@ -1439,7 +1449,7 @@ if __name__ == "__main__":
 
     win.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
 
-    MainApplication(win)
+    main_app = MainApplication(win)
 
     # initiate Tkinter mainloop
     win.mainloop()

@@ -67,7 +67,14 @@ def blink_ratio(img, facelandmarks, right_indices, left_indices):
     lvDistance = euclidean_distance(lv_top, lv_bottom)
     lhDistance = euclidean_distance(lh_right, lh_left)
 
-    reRatio = rhDistance/rvDistance
-    leRatio = lhDistance/lvDistance
+    if rvDistance != 0.0:
+        reRatio = rhDistance/rvDistance
+    else:
+        reRatio = 1.0
+
+    if lvDistance != 0.0:
+        leRatio = lhDistance/lvDistance
+    else:
+        leRatio = 1.0
 
     return reRatio, leRatio
