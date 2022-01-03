@@ -45,8 +45,10 @@ from keyboard_utils import *
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
-blink_th = 6.0
+blink_th = 5.0
+time_th = 1000.0
 calibration_time = 10000    # [ms] Clibration time
+fps = 50                    # [fps] Acquisition frequency
 
 # Define some colors
 BLACK = (0, 0, 0)
@@ -660,6 +662,11 @@ class MainApplication(tk.Frame):
             keyboard_interface(root=win)
             keyboard_active = True
 
+        # Blink timer initialization
+        rg_eye_blk_start = 0.0
+        lf_eye_blk_start = 0.0
+        both_eye_blk_start = 0.0
+
         while not r.is_terminated:
             # --- Main event loop
             for event in pygame.event.get():  # User did something
@@ -719,18 +726,45 @@ class MainApplication(tk.Frame):
                         print(right_ratio, left_ratio)
                         if right_ratio > blink_th and left_ratio < blink_th:
                             print("I saw you blinking the right eye...")
-                            mouse.click('right')
-                            time.sleep(1.0)
+                            if rg_eye_blk_start == 0.0:
+                                rg_eye_blk_start = time.time() * 1000
+                            rg_eye_blk_active = time.time() * 1000
+                            rg_eye_blk_dt = rg_eye_blk_active - rg_eye_blk_start
+                            if rg_eye_blk_dt >= time_th:
+                                mouse.click('right')
+                                print("Right click triggered...")
+                                rg_eye_blk_start == 0.0
+                            time.sleep(0.1)
                         elif right_ratio < blink_th and left_ratio > blink_th:
                             print("I saw you blinking the left eye...")
-                            mouse.click('left')
-                            time.sleep(1.0)
+                            if lf_eye_blk_start == 0.0:
+                                lf_eye_blk_start = time.time() * 1000
+                            lf_eye_blk_active = time.time() * 1000
+                            lf_eye_blk_dt = lf_eye_blk_active - lf_eye_blk_start
+                            print("Delta left %.2f" %lf_eye_blk_dt)
+                            if lf_eye_blk_dt >= time_th:
+                                print("Left click triggered...")
+                                lf_eye_blk_start == 0.0
+                                mouse.click('left')
+                            time.sleep(0.1)
                         elif right_ratio > blink_th and left_ratio > blink_th:
                             print("I saw you blinking both eyes...")
-                            print("Disconnecting the mouse control!")
-                            main_app.check_m1.deselect()
-                            main_app.check_m1.update()
-                            mouse_bool = False
+                            if both_eye_blk_start == 0.0:
+                                both_eye_blk_start = time.time() * 1000
+                            both_eye_blk_active = time.time() * 1000
+                            both_eye_blk_dt = both_eye_blk_active - both_eye_blk_start
+                            print("Delta left %.2f" %lf_eye_blk_dt)
+                            if both_eye_blk_dt >= time_th / 0.5:
+                                print("Left click triggered...")
+                                both_eye_blk_dt == 0.0
+                                time.sleep(0.1)
+                                main_app.check_m1.deselect()
+                                main_app.check_m1.update()
+                                mouse_bool = False
+                        else:
+                            rg_eye_blk_start = 0.0
+                            lf_eye_blk_start = 0.0
+                            both_eye_blk_start = 0.0
 
                 else:
 
@@ -773,7 +807,7 @@ class MainApplication(tk.Frame):
                     lbl_tgt.update()
 
                 # --- Limit to 50 frames per second
-                clock.tick(50)
+                clock.tick(fps)
 
         # Once we have exited the main program loop, stop the game engine and release the capture
         pygame.quit()
