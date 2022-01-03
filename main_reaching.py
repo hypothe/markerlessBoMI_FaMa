@@ -551,7 +551,7 @@ class MainApplication(tk.Frame):
         :param lbl_tgt: label in the main window that shows number of targets remaining
         :return:
         """
-        global main_app
+        global win
 
         pygame.init()
         if mouse_bool == True:
@@ -654,10 +654,12 @@ class MainApplication(tk.Frame):
 
         print("cursor control thread is about to start...")
 
-        if keyboard_bool == True:
-            keyboard_interface()
-
         # -------- Main Program Loop -----------
+        keyboard_active = False
+        if keyboard_bool == True and keyboard_active == False:
+            keyboard_interface(root=win)
+            keyboard_active = True
+
         while not r.is_terminated:
             # --- Main event loop
             for event in pygame.event.get():  # User did something
@@ -782,7 +784,6 @@ class MainApplication(tk.Frame):
         cap.release()
         cv2.destroyAllWindows()
         print("openCV object released in practice.")
-
 
 class CustomizationApplication(tk.Frame):
     """
@@ -1410,6 +1411,7 @@ def get_curr_screen_geometry():
         geometry (str): The standard Tk geometry string.
             [width]x[height]+[left]+[top]
     """
+    global root
     root = tk.Tk()
     root.update_idletasks()
     root.attributes('-fullscreen', True)
@@ -1428,7 +1430,7 @@ def get_window_res_from_geometry(geomStr):
 # MAIN
 if __name__ == "__main__":
 
-    global main_app
+    global win
 
     # initialize mainApplication tkinter window
     win = tk.Tk()

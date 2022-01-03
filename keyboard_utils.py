@@ -40,13 +40,18 @@ def select(entry, value):
                 shift_on == False
         entry.insert('end', value)
 
-def keyboard_interface():
+def keyboard_interface(root = None):
     """
     function to define the digital keyboard
     :return:
     """
+    if root is None:
+        keyboard_app = tk.Tk()
+        print('Main')
+    else:
+        keyboard_app = tk.Toplevel(root)
+        print('Top')
 
-    keyboard_app = tkinter.Tk()
     keyboard_app.title("My keyboard")
     keyboard_app['bg'] = 'powder blue'
     keyboard_app.resizable(0, 0)
@@ -88,9 +93,13 @@ def keyboard_interface():
                     activebackground="#ffffff", activeforeground="#000990", relief='raised',
                     command=command).grid(row=var_row + 2, column=1)
 
-    # keyboard_app.mainloop()
-    raise_above(keyboard_app)
+    # Visualize the keyboard
+    if root is None:
+        keyboard_app.mainloop()
+    else:
+        keyboard_app.grab_set()
 
+    raise_above(keyboard_app)
 
 if __name__ == "__main__":
 
