@@ -19,6 +19,7 @@ from tkinter import Label, Text, Button
 import pyautogui
 import pygame
 import mouse
+import time
 
 
 class BoMIReaching(JointMapper):
@@ -32,6 +33,9 @@ class BoMIReaching(JointMapper):
         self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
+
+        self.refresh_rate = 30 # frames per second at max
+        self.interframe_delay = 1/self.refresh_rate 
 
     def map_to_workspace(self, drPath, train_cu):
         r = Reaching()
@@ -63,15 +67,113 @@ class BoMIReaching(JointMapper):
             # open pygame and start reaching task
             self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
-                            self.check_mouse.get(), self.video_camera_device)
+            if self.check_mouse.get() == False:
+                self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode self.video_camera_device)
+            else:
+                self.start_mouse_control(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode self.video_camera_device)
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
             
+    def start_mouse_control(self, drPath, lbl_tgt, num_joints, joints, dr_mode, video_device=0):
+        
+        print("Mouse control active")
 
-    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, mouse_bool, video_device=0):
+        # Create object of openCV, Reaching class and filter_butter3
+        cap = cv_utils.VideoCaptureOpt(video_device)
+
+        r = Reaching()
+        filter_curs = FilterButter3("lowpass_4")
+
+        # Open a new window
+        size = (r.width, r.height)
+
+        # initialize targets and the reaching log file header
+        reaching_functions.initialize_targets(r)
+        reaching_functions.write_header(r)
+
+        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
+        map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
+
+        # initialize MediaPipe Pose
+        mp_holistic = mp.solutions.holistic
+        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
+                                        smooth_landmarks=False)
+
+        # load scaling values for covering entire monitor workspace
+        rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
+        scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
+        scale_dr = np.reshape(scale_dr, (scale_dr.shape[0],))
+        off_dr = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
+        off_dr = np.reshape(off_dr, (off_dr.shape[0],))
+        rot_custom = pd.read_csv(drPath + 'rotation_custom.txt', sep=' ', header=None).values
+        scale_custom = pd.read_csv(drPath + 'scale_custom.txt', sep=' ', header=None).values
+        scale_custom = np.reshape(scale_custom, (scale_custom.shape[0],))
+        off_custom = pd.read_csv(drPath + 'offset_custom.txt', sep=' ', header=None).values
+        off_custom = np.reshape(off_custom, (off_custom.shape[0],))
+
+        # initialize lock for avoiding race conditions in threads
+        lock = Lock()
+
+        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+
+        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
+        q_frame = queue.Queue()
+        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r))
+        opencv_thread.start()
+        print("openCV thread started in practice.")
+
+        # initialize thread for mediapipe operations
+        mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+        mediapipe_thread.start()
+        print("mediapipe thread started in practice.")
+
+        print("cursor control thread is about to start...")
+
+        # -------- Main Program Loop -----------
+        while not r.is_terminated:
+            # --- Main event loop
+            start_time = 0
+            end_time = 0
+
+            if not r.is_paused:
+                start_time = time.time()
+                # Copy old cursor position
+                r.old_crs_x = r.crs_x
+                r.old_crs_y = r.crs_y
+
+                # get current value of body
+                r.body = np.copy(self.body_wrap.body)
+
+                # apply BoMI forward map to body vector to obtain cursor position.
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
+                # Check if the crs is bouncing against any of the 4 walls:
+
+                # Filter the cursor
+                r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
+
+                # if mouse checkbox was enabled do not draw the reaching GUI,
+                # only change coordinates of the computer cursor
+                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=interframe_delay)
+                end_time = time.time()
+
+                time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
+
+        opencv_thread.join()
+        mediapipe_thread.join()
+
+        print("game engine object released in practice.")
+        holistic.close()
+        print("pose estimation object released in practice.")
+        cap.release()
+        cv2.destroyAllWindows()
+        print("openCV object released in practice.")
+
+    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, video_device=0):
         """
         function to perform online cursor control - practice
         :param drPath: path where to load the BoMI forward map and customization values
@@ -80,10 +182,7 @@ class BoMIReaching(JointMapper):
         :return:
         """
         pygame.init()
-        if mouse_bool == True:
-            print("Mouse control active")
-        else:
-            print("Game active")
+        print("Game active")
 
         ############################################################
 
@@ -102,11 +201,8 @@ class BoMIReaching(JointMapper):
 
         # Open a new window
         size = (r.width, r.height)
-        if mouse_bool == False:
-            screen = pygame.display.set_mode(size)
+        screen = pygame.display.set_mode(size)
 
-        else:
-            print("Control the mouse")
         # screen = pygame.display.toggle_fullscreen()
 
         # The clock will be used to control how fast the screen updates
@@ -193,70 +289,61 @@ class BoMIReaching(JointMapper):
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
                     (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
                 # Check if the crs is bouncing against any of the 4 walls:
-
-                if mouse_bool == False:
-
-                    if r.crs_x >= r.width:
-                        r.crs_x = r.width
-                    if r.crs_x <= 0:
-                        r.crs_x = 0
-                    if r.crs_y >= r.height:
-                        r.crs_y = 0
-                    if r.crs_y <= 0:
-                        r.crs_y = r.height
+                
+                if r.crs_x >= r.width:
+                    r.crs_x = r.width
+                if r.crs_x <= 0:
+                    r.crs_x = 0
+                if r.crs_y >= r.height:
+                    r.crs_y = 0
+                if r.crs_y <= 0:
+                    r.crs_y = r.height
 
                 # Filter the cursor
                 r.crs_x, r.crs_y = reaching_functions.filter_cursor(r, filter_curs)
 
                 # if mouse checkbox was enabled do not draw the reaching GUI,
                 # only change coordinates of the computer cursor
-                if mouse_bool == True:
+                # Set target position to update the GUI
+                reaching_functions.set_target_reaching(r)
+                # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
+                screen.fill(BLACK)
+                # Do not show the cursor in the blind trials when the cursor is outside the home target
+                if not r.is_blind:
+                    # draw cursor
+                    pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
 
-                    # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
-                    mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1/50)
-
-                else:
-
-                    # Set target position to update the GUI
-                    reaching_functions.set_target_reaching(r)
-                    # First, clear the screen to black. In between screen.fill and pygame.display.flip() all the draw
-                    screen.fill(BLACK)
-                    # Do not show the cursor in the blind trials when the cursor is outside the home target
-                    if not r.is_blind:
-                        # draw cursor
-                        pygame.draw.circle(screen, CURSOR, (int(r.crs_x), int(r.crs_y)), r.crs_radius)
-
-                    # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
-                    if r.state == 0:  # green
+                # draw target. green if blind, state 0 or 1. yellow if notBlind and state 2
+                if r.state == 0:  # green
+                    pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                elif r.state == 1:
+                    pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                elif r.state == 2:  # yellow
+                    if r.is_blind:  # green again if blind trial
                         pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                    elif r.state == 1:
-                        pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                    elif r.state == 2:  # yellow
-                        if r.is_blind:  # green again if blind trial
-                            pygame.draw.circle(screen, GREEN, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
-                        else:  # yellow if not blind
-                            pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
+                    else:  # yellow if not blind
+                        pygame.draw.circle(screen, YELLOW, (int(r.tgt_x), int(r.tgt_y)), r.tgt_radius, 2)
 
-                    # Display scores:
-                    font = pygame.font.Font(None, 80)
-                    text = font.render(str(r.score), True, RED)
-                    screen.blit(text, (1250, 10))
+                # Display scores:
+                font = pygame.font.Font(None, 80)
+                text = font.render(str(r.score), True, RED)
+                screen.blit(text, (1250, 10))
 
-                    # --- update the screen with what we've drawn.
-                    pygame.display.flip()
+                # --- update the screen with what we've drawn.
+                pygame.display.flip()
 
-                    # After showing the cursor, check whether cursor is in the target
-                    reaching_functions.check_target_reaching(r, timer_enter_tgt)
-                    # Then check if cursor stayed in the target for enough time
-                    reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
+                # After showing the cursor, check whether cursor is in the target
+                reaching_functions.check_target_reaching(r, timer_enter_tgt)
+                # Then check if cursor stayed in the target for enough time
+                reaching_functions.check_time_reaching(r, timer_enter_tgt, timer_start_trial, timer_practice)
 
-                    # update label with number of targets remaining
-                    tgt_remaining = 248 - r.trial + 1
-                    lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
-                    lbl_tgt.update()
+                # update label with number of targets remaining
+                tgt_remaining = 248 - r.trial + 1
+                lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
+                lbl_tgt.update()
 
                 # --- Limit to 50 frames per second
-                clock.tick(50)
+                clock.tick(self.interframe_delay)
 
         opencv_thread.join()
         mediapipe_thread.join()
@@ -275,7 +362,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
     def __init__(self, mainTk):
         CustomizationApplication.__init__(self, mainTk)
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, fps=120):
         tk.Frame.__init__(self, parent)
         self.video_camera_device = video_camera_device
         self.parent = parent
@@ -337,6 +424,8 @@ class CustomizationApplicationReaching(CustomizationApplication):
         self.btn_close.config(font=("Arial", self.font_size))
         self.btn_close.grid(column=2, row=3, sticky='nesw', padx=(80, 0), pady=(40, 20))
 
+        self.refresh_rate = fps # frames per second at max
+        self.interframe_delay = 1/self.refresh_rate 
 
 
     # functions to retrieve values of textbox programmatically
@@ -520,7 +609,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
                 pygame.display.flip()
 
                 # --- Limit to 50 frames per second
-                clock.tick(50)
+                clock.tick(self.interframe_delay)
 
         opencv_thread.join()
         mediapipe_thread.join()

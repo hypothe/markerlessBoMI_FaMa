@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 
-def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, fps=120):
+def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, mp_face_mesh=None, lock, q_frame, r, num_joints, joints, fps=120):
 	"""
 	function that runs in the thread for estimating pose online
 	:param pose: object of Mediapipe class used to predict poses
@@ -45,6 +45,8 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 					# To improve performance, optionally mark the image as not writeable to pass by reference.
 					image_data.image.flags.writeable = False
 					image_data.result = holistic.process(image_data.image)
+					if mp_face_mesh is not None:
+						image_data.result_face = mp_face_mesh.process(image_data.image)
 
 				if not image_data.result.pose_landmarks:
 					continue
@@ -97,3 +99,17 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 		time.sleep(max(0, interframe_delay - (end_time - start_time)))
 
 	print('Mediapipe_forwardpass thread terminated.')
+
+
+def landmarksDetection(img, results, draw=False):
+    # landmark detection function
+
+    img_height, img_width = img.shape[:2]
+    # list[(x,y), (x,y)....]
+    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in
+                  results.multi_face_landmarks[0].landmark]
+    if draw:
+        [cv2.circle(img, p, 2, GREEN, -1) for p in mesh_coord]
+
+    # returning the list of tuples for each landmarks
+    return mesh_coord

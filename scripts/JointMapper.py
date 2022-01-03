@@ -42,10 +42,16 @@ import copy
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
 
+blink_th = 5.0
+time_th = 1000.0
+calibration_time = 10000    # [ms] Clibration time
+fps = 50    
+
 class SharedDetImage:
     def __init__(self):
         self.image = None
         self.result = None
+        self.result_face = None
         self.lock = Lock()
 
 class BodyWrap:
