@@ -730,6 +730,7 @@ class MainApplication(tk.Frame):
                                 rg_eye_blk_start = time.time() * 1000
                             rg_eye_blk_active = time.time() * 1000
                             rg_eye_blk_dt = rg_eye_blk_active - rg_eye_blk_start
+                            print("Delta left %.2f" % rg_eye_blk_dt)
                             if rg_eye_blk_dt >= time_th:
                                 mouse.click('right')
                                 print("Right click triggered...")
@@ -741,7 +742,7 @@ class MainApplication(tk.Frame):
                                 lf_eye_blk_start = time.time() * 1000
                             lf_eye_blk_active = time.time() * 1000
                             lf_eye_blk_dt = lf_eye_blk_active - lf_eye_blk_start
-                            print("Delta left %.2f" %lf_eye_blk_dt)
+                            print("Delta left %.2f" % lf_eye_blk_dt)
                             if lf_eye_blk_dt >= time_th:
                                 print("Left click triggered...")
                                 lf_eye_blk_start == 0.0
@@ -753,9 +754,9 @@ class MainApplication(tk.Frame):
                                 both_eye_blk_start = time.time() * 1000
                             both_eye_blk_active = time.time() * 1000
                             both_eye_blk_dt = both_eye_blk_active - both_eye_blk_start
-                            print("Delta left %.2f" %lf_eye_blk_dt)
+                            print("Delta both %.2f" % both_eye_blk_dt)
                             if both_eye_blk_dt >= time_th / 0.5:
-                                print("Left click triggered...")
+                                print("Mouse control stopped...")
                                 both_eye_blk_dt == 0.0
                                 time.sleep(0.1)
                                 main_app.check_m1.deselect()
