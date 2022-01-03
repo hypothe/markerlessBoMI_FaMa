@@ -1,5 +1,4 @@
 import cv2
-import time
 
 
 def check_available_videoio_backend(queryBackendName):
@@ -18,7 +17,7 @@ def VideoCaptureOpt(videoSource):
     return cap
 
 
-def get_data_from_camera(cap, q_frame, r, cal, fps=120):
+def get_data_from_camera(cap, q_frame, r):
     '''
     function that runs in the thread to capture current frame and put it into the queue
     :param cap: object of OpenCV class
@@ -26,23 +25,13 @@ def get_data_from_camera(cap, q_frame, r, cal, fps=120):
     :param r: object of Reaching class
     :return:
     '''
-    # check for possible incorrectly represented fps values
-    # (<FIX> some camera reporting fps = 0)
-    if fps <= 0:
-        fps = 120
     
-    interframe_delay = float(1.0/fps)
     while not r.is_terminated:
-        start_time = time.time()
         if not r.is_paused:
             try:
                 ret, frame = cap.read()
                 q_frame.put(frame)
             except:
                 r.is_terminated = True
-        # consume the source at the correct frequecy      
-        end_time = time.time()
         
-        time.sleep(max(0, interframe_delay - (end_time - start_time)))
-
     print('OpenCV thread terminated.')
