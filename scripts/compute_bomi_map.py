@@ -37,6 +37,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import math
 from scripts.reaching import Reaching
+import scripts.reaching_functions as reaching_functions
 import matplotlib.pyplot as plt
 
 ## utility functions 
@@ -895,11 +896,11 @@ def train_pca(calibPath, drPath, n_pc):
     # normalize latent space to fit the monitor coordinates
     # Applying rotation
     train_pc = np.dot(train_x, pca.components_[:, :n_pc])
-    plot_map = True
+
+    plot_map = False
     if plot_map:
         rot = 0
-        train_pc[0] = train_pc[0] * np.cos(np.pi / 180 * rot) - train_pc[1] * np.sin(np.pi / 180 * rot)
-        train_pc[1] = train_pc[0] * np.sin(np.pi / 180 * rot) + train_pc[1] * np.cos(np.pi / 180 * rot)
+        train_pc = reaching_functions.rotate_xy_RH(train_pc, rot)
         # Applying scale
         scale = [r.width / np.ptp(train_pc[:, 0]), r.height / np.ptp(train_pc[:, 1])]
         train_pc = train_pc * scale
@@ -981,10 +982,9 @@ def train_ae(calibPath, drPath, n_map_component):
     plot_ae = False
     if plot_ae:
         rot = 0
-        train_cu[0] = train_cu[0] * np.cos(np.pi / 180 * rot) - train_cu[1] * np.sin(np.pi / 180 * rot)
-        train_cu[1] = train_cu[0] * np.sin(np.pi / 180 * rot) + train_cu[1] * np.cos(np.pi / 180 * rot)
-        if cu == 3:
-            train_cu[2] = np.tanh(train_cu[2])
+        train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
+        #if cu == 3:
+        #    train_cu[2] = np.tanh(train_cu[2])
         # Applying scale
         scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
         train_cu = train_cu * scale

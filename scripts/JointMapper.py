@@ -272,8 +272,7 @@ class JointMapper(tk.Frame):
             # rotate, scale and offset the original features
             # implementation-dependant (depends on the workspace of
             # each variable, eg. screen space vs. joint space)
-            # DEBUG
-            ##self.map_to_workspace(self.calibPath, train_cu)
+            self.map_to_workspace(self.drPath, train_cu)
 
             self.btn_custom["state"] = "normal"
         else:

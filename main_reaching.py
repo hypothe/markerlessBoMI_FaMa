@@ -35,6 +35,10 @@ class BoMIReaching(JointMapper):
     def map_to_workspace(self, drPath, train_cu):
         r = Reaching()
 
+        # save weights and biases
+        if not os.path.exists(drPath):
+            os.makedirs(drPath)
+
         rot = 0
         train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
         # Applying scale
@@ -45,7 +49,6 @@ class BoMIReaching(JointMapper):
         train_cu = train_cu + off
 
         # save PCA scaling values
-        print("CALIBPATH {}".format(drPath))
         with open(drPath + "rotation_dr.txt", 'w') as f:
             print(rot, file=f)
         np.savetxt(drPath + "scale_dr.txt", scale)
