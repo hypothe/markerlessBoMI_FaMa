@@ -35,15 +35,15 @@ def get_data_from_camera(cap, q_frame, r, duration=None):
     keep_reading_cap = True
 
     fps_source = cap.get(cv2.CAP_PROP_FPS)
-    frames_lenght_source = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    fps_source = fps_source > 0 and fps_source or 30
 
-    if fps_source <= 0:
-        fps_source = 30
+    frames_lenght_source = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    frames_lenght_source = frames_lenght_source > 0 and frames_lenght_source or math.inf
 
     if duration is not None:
         frames_to_read = min(math.floor(duration*fps_source/1000), frames_lenght_source)
     else:
-        frames_to_read = frames_lenght_source > 0 and frames_lenght_source or math.inf
+        frames_to_read = frames_lenght_source
 
     while keep_reading_cap and not r.is_terminated:
         if not r.is_paused:

@@ -29,6 +29,12 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 
 	keep_reading_queue = True
 
+	# This first timeout waits for up to 10 seconds until the video source is up
+	# and put something in the queue
+	# NOTE: this eats up the first element in said queue, not a drama here
+	# but neither so elegant it won't come bite us back later on.
+	_ = q_frame.get(block=True, timeout=10.0)
+
 	while keep_reading_queue and not r.is_terminated:
 		start_time = 0
 		end_time = 0
