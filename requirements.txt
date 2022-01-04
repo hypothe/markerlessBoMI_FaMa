@@ -8,4 +8,3 @@ pyautogui
 mediapipe==0.8.8
 tensorflow
 sklearn
-mouse

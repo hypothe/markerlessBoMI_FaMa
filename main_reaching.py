@@ -19,7 +19,6 @@ import tkinter as tk
 from tkinter import Label, Text, Button
 import pyautogui
 import pygame
-import mouse
 import time
 import math
 import copy
@@ -148,6 +147,9 @@ class BoMIReaching(JointMapper):
 
         win_name = "Cursor Control"
 
+        pyautogui.FAILSAFE = False
+        is_mouse_down = False
+
         # -------- Main Program Loop -----------
         while not r.is_terminated:
             # --- Main event loop
@@ -174,7 +176,8 @@ class BoMIReaching(JointMapper):
 
                 # if mouse checkbox was enabled do not draw the reaching GUI,
                 # only change coordinates of the computer cursor
-                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=self.interframe_delay)
+                #mouse.move(r.crs_x, r.crs_y, absolute=True, duration=self.interframe_delay)
+                pyautogui.moveTo(r.crs_x, r.crs_y)
 
                 with self.current_image_data.lock:
                     results_face = copy.deepcopy(self.current_image_data.result_face)
@@ -198,11 +201,21 @@ class BoMIReaching(JointMapper):
                         r.is_terminated = True
                         #print("#DEBUG: Both eyes closed")
                     elif left_eye.is_blink_detected():
-                        mouse.click('left')
+                        #mouse.click('left')
+                        pyautogui.mouseDown(button='left')
+                        pyautogui.mouseUp(button='right')
+                        is_mouse_down = True
                         #print("#DEBUG: Left eye closed")
                     elif right_eye.is_blink_detected():
-                        mouse.click('right')
+                        pyautogui.mouseDown(button='right')
+                        pyautogui.mouseUp(button='left')
+                        is_mouse_down = True
+                        #mouse.click('right')
                         #print("#DEBUG: Right eye closed")
+                    elif is_mouse_down == True:
+                        pyautogui.mouseUp(button='left')
+                        pyautogui.mouseUp(button='right')
+                        is_mouse_down = False
 
 
                     if cv2.waitKey(1) == 27:
