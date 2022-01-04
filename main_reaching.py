@@ -37,6 +37,7 @@ import math
 import mouse
 import copy
 from blinkdetector_utils import *
+from keyboard_class import *
 from keyboard_utils import *
 
 #########
@@ -47,7 +48,7 @@ pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is T
 
 blink_th = 5.0
 time_th = 1000.0
-calibration_time = 10000    # [ms] Clibration time
+calibration_time = 10000    # [ms] Calibration time
 fps = 50                    # [fps] Acquisition frequency
 
 # Define some colors
@@ -99,7 +100,7 @@ class MainApplication(tk.Frame):
 
     def __init__(self, parent, *args, **kwargs):
 
-        self.video_camera_device = 0 # -> 0 for the camera
+        self.video_camera_device = 0  # -> 0 for the camera
         self.current_image = None
         self.results = None
 
@@ -192,7 +193,6 @@ class MainApplication(tk.Frame):
         self.lbl_tgt = Label(parent, text='Remaining targets: ')
         self.lbl_tgt.config(font=("Arial", self.font_size))
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
-
 
         # Camera video input
         self.btn_cam = Button(parent, text='Ext. Video Source', command=self.selectVideoFile)
@@ -654,13 +654,16 @@ class MainApplication(tk.Frame):
         wfile_thread.start()
         print("writing reaching log file thread started in practice.")
 
+        if keyboard_bool == True:
+            # initialize keyboard operations
+            keyboard_thread = Thread(target=keyboard_interface,
+                                     args=())
+            keyboard_thread.start()
+            print("Keyboard interface started in calibration.")
+
         print("cursor control thread is about to start...")
 
         # -------- Main Program Loop -----------
-        keyboard_active = False
-        if keyboard_bool == True and keyboard_active == False:
-            keyboard_interface(root=win)
-            keyboard_active = True
 
         # Blink timer initialization
         rg_eye_blk_start = 0.0
@@ -761,7 +764,11 @@ class MainApplication(tk.Frame):
                                 time.sleep(0.1)
                                 main_app.check_m1.deselect()
                                 main_app.check_m1.update()
+                                main_app.check_kb1.deselect()
+                                main_app.check_kb1.update()
                                 mouse_bool = False
+                                keyboard_bool = False
+                                keyboard_thread.join()
                         else:
                             rg_eye_blk_start = 0.0
                             lf_eye_blk_start = 0.0
