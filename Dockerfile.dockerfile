@@ -12,7 +12,7 @@ WORKDIR ${HOME}
 RUN	apt-get update && apt -y install python3-pip \
 	&& apt install -y build-essential libsm6 libssl-dev libffi-dev python3-dev python3-tk ffmpeg xauth xxd
 
-RUN git clone --branch mod-refactor https://github.com/hypothe/markerlessBoMI_FaMa.git ${WS}
+RUN git clone --branch blink-refactor https://github.com/hypothe/markerlessBoMI_FaMa.git ${WS}
 
 # necessary, somehow, for the xserver called by pyautogui
 ENV XAUTHORITY=${HOME}/.Xauthority
