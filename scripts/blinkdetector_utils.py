@@ -1,5 +1,6 @@
 import math
 import cv2
+from scripts.stopwatch import StopWatch
 
 # Eye indices for blink detection
 # Left eyes indices
@@ -12,6 +13,8 @@ RIGHT_EYEBROW = [70, 63, 105, 66, 107, 55, 65, 52, 53, 46]
 
 # Colors
 WHITE = (255, 255, 255)
+
+
 
 
 def euclidean_distance(point_a, point_b):
@@ -35,8 +38,10 @@ def face_landmarks_detection(img, results, draw=False):
     return mesh_coord
 
 
-def blink_ratio(img, facelandmarks, right_indices, left_indices):
+def blink_ratio(img, facelandmarks):
     # Blinking ratio
+    right_indices = RIGHT_EYE
+    left_indices = LEFT_EYE
 
     # Right eyes
         # horizontal line
@@ -78,3 +83,26 @@ def blink_ratio(img, facelandmarks, right_indices, left_indices):
         leRatio = 1.0
 
     return reRatio, leRatio
+
+class Eye:
+    def __init__(self):
+        self._BLINK_TH = 5.0 # empiric value
+        self._BLINK_TIME_TH = 1000.0 # msec
+
+        self._ratio = 0
+        self._timer = StopWatch()
+        self._is_shut = False
+    
+    def is_blink_detected(self):
+        return self._is_shut and self._timer.elapsed_time > self._BLINK_TIME_TH
+
+    def set_ratio(self, ratio):
+        self._ratio = ratio
+
+        if not self._is_shut and self._ratio > self._BLINK_TH:
+            self._is_shut = True
+            self._timer.start()
+        elif self._is_shut and self._ratio < self._BLINK_TH:
+            self._is_shut = False
+            self._timer.pause()
+

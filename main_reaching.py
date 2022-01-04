@@ -5,6 +5,7 @@ import cv2
 import pandas as pd
 import numpy as np
 import mediapipe as mp
+import scripts.blinkdetector_utils as bd_utils
 import scripts.reaching_functions as reaching_functions
 import scripts.mediapipe_utils as mediapipe_utils
 from scripts.stopwatch import StopWatch
@@ -21,6 +22,7 @@ import pygame
 import mouse
 import time
 import math
+import copy
 
 
 class BoMIReaching(JointMapper):
@@ -102,6 +104,16 @@ class BoMIReaching(JointMapper):
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                         smooth_landmarks=False)
 
+        # initialize Mediapipe FaceMesh
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1,
+                                          refine_landmarks=True,
+                                          min_detection_confidence=0.5,
+                                          min_tracking_confidence=0.5)
+        left_eye = bd_utils.Eye()
+        right_eye = bd_utils.Eye()
+
+
         # load scaling values for covering entire monitor workspace
         rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
         scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
@@ -128,11 +140,13 @@ class BoMIReaching(JointMapper):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), face_mesh))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
 
         print("cursor control thread is about to start...")
+
+        win_name = "Cursor Control"
 
         # -------- Main Program Loop -----------
         while not r.is_terminated:
@@ -141,6 +155,7 @@ class BoMIReaching(JointMapper):
             end_time = 0
 
             if not r.is_paused:
+                
                 start_time = time.time()
                 # Copy old cursor position
                 r.old_crs_x = r.crs_x
@@ -159,7 +174,40 @@ class BoMIReaching(JointMapper):
 
                 # if mouse checkbox was enabled do not draw the reaching GUI,
                 # only change coordinates of the computer cursor
-                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=interframe_delay)
+                mouse.move(r.crs_x, r.crs_y, absolute=True, duration=self.interframe_delay)
+
+                with self.current_image_data.lock:
+                    results_face = copy.deepcopy(self.current_image_data.result_face)
+                    frame = copy.deepcopy(self.current_image_data.image)
+
+                if results_face and results_face.multi_face_landmarks:
+                    
+                    mesh_coords = mediapipe_utils.landmarksDetection(frame, results_face, False)
+                    right_ratio, left_ratio = bd_utils.blink_ratio(frame, mesh_coords)
+                    
+                    frame.flags.writeable = True
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    cv2.imshow(win_name, frame)
+
+                    assert isinstance(right_ratio, object)
+
+                    left_eye.set_ratio(left_ratio)
+                    right_eye.set_ratio(right_ratio)
+
+                    if left_eye.is_blink_detected() and right_eye.is_blink_detected():
+                        r.is_terminated = True
+                        #print("#DEBUG: Both eyes closed")
+                    elif left_eye.is_blink_detected():
+                        mouse.click('left')
+                        #print("#DEBUG: Left eye closed")
+                    elif right_eye.is_blink_detected():
+                        mouse.click('right')
+                        #print("#DEBUG: Right eye closed")
+
+
+                    if cv2.waitKey(1) == 27:
+                        break  # esc to quit
+
                 end_time = time.time()
 
                 time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
@@ -226,6 +274,7 @@ class BoMIReaching(JointMapper):
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                         smooth_landmarks=False)
 
+
         # load scaling values for covering entire monitor workspace
         rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
         scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
@@ -279,6 +328,7 @@ class BoMIReaching(JointMapper):
                         pyautogui.click(r.crs_x, r.crs_y)
 
             if not r.is_paused:
+                
                 # Copy old cursor position
                 r.old_crs_x = r.crs_x
                 r.old_crs_y = r.crs_y

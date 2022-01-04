@@ -66,8 +66,9 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 					image_data.image.flags.writeable = False
 					image_data.result = holistic.process(image_data.image)
 
-					#if mp_face_mesh is not None:
-					#	image_data.result_face = mp_face_mesh.process(image_data.image)
+					if mp_face_mesh is not None:
+						image_data.result_face = mp_face_mesh.process(image_data.image)
+						#print("result face {}".format(image_data.result_face.multi_face_landmarks))
 
 				if not image_data.result.pose_landmarks:
 					continue
