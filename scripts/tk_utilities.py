@@ -27,29 +27,30 @@ def get_window_res_from_geometry(geomStr):
 
 def win_init(win_title):
 
-	win = tk.Tk()
-	win.title(win_title)
-	#user32 = ctypes.windll.user32
-	#screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    win = tk.Tk()
+    win.title(win_title)
+    win['bg'] = '#ABCDEF'
+    #user32 = ctypes.windll.user32
+    #screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
-	#screen_width = win.winfo_screenwidth()
-	#screen_height = win.winfo_screenheight()
+    #screen_width = win.winfo_screenwidth()
+    #screen_height = win.winfo_screenheight()
 
-	screensize = get_window_res_from_geometry(get_curr_screen_geometry())
-	
-	screen_width = screensize[0]
-	screen_height = screensize[1]
+    screensize = get_window_res_from_geometry(get_curr_screen_geometry())
+    
+    screen_width = screensize[0]
+    screen_height = screensize[1]
 
-	window_width = math.ceil(screen_width / 1.2)
-	window_height = math.ceil(screen_height / 1.2)
+    window_width = math.ceil(screen_width / 1.2)
+    window_height = math.ceil(screen_height / 1.2)
 
 
-	x_cordinate = int((screen_width / 2) - (window_width / 2))
-	y_cordinate = int((screen_height / 2) - (window_height / 2))
+    x_cordinate = int((screen_width / 2) - (window_width / 2))
+    y_cordinate = int((screen_height / 2) - (window_height / 2))
 
-	win.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
+    win.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
 
-	return win
+    return win
 
 def raise_above_all(window):
     window.lift()

@@ -80,102 +80,102 @@ class JointMapper(tk.Frame):
         self.font_size = 18
         self.n_map_component = n_map_components
 
-        self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints)
-        self.btn_num_joints.config(font=("Arial", self.font_size))
+        self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_num_joints.config(font=("Times", self.font_size))
         self.btn_num_joints.grid(row=0, column=0, columnspan=2, padx=20, pady=30, sticky='nesw')
 
         # set checkboxes for selecting joints
         self.check_nose = BooleanVar()
-        self.check1 = Checkbutton(win, text="Nose", variable=self.check_nose)
-        self.check1.config(font=("Arial", self.font_size))
+        self.check1 = Checkbutton(win, text="Nose", variable=self.check_nose, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check1.config(font=("Times", self.font_size))
         self.check1.grid(row=0, column=2, padx=(0, 40), pady=30, sticky='w')
 
         self.check_eyes = BooleanVar()
-        self.check2 = Checkbutton(win, text="Eyes", variable=self.check_eyes)
-        self.check2.config(font=("Arial", self.font_size))
+        self.check2 = Checkbutton(win, text="Eyes", variable=self.check_eyes, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check2.config(font=("Times", self.font_size))
         self.check2.grid(row=0, column=3, padx=(0, 40), pady=30, sticky='w')
 
         self.check_shoulders = BooleanVar()
-        self.check3 = Checkbutton(win, text="Shoulders", variable=self.check_shoulders)
-        self.check3.config(font=("Arial", self.font_size))
+        self.check3 = Checkbutton(win, text="Shoulders", variable=self.check_shoulders, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check3.config(font=("Times", self.font_size))
         self.check3.grid(row=0, column=4, padx=(0, 30), pady=30, sticky='w')
 
         self.check_forefinger = BooleanVar()
         self.check4 = Checkbutton(win, text="Right Forefinger",
-                                  variable=self.check_forefinger)
-        self.check4.config(font=("Arial", self.font_size))
+                                  variable=self.check_forefinger, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check4.config(font=("Times", self.font_size))
         self.check4.grid(row=0, column=5, padx=(0, 20), pady=30, sticky='w')
 
         self.check_fingers = BooleanVar()
-        self.check5 = Checkbutton(win, text="Fingers", variable=self.check_fingers)
-        self.check5.config(font=("Arial", self.font_size))
+        self.check5 = Checkbutton(win, text="Fingers", variable=self.check_fingers, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check5.config(font=("Times", self.font_size))
         self.check5.grid(row=0, column=6, padx=(0, 20), pady=30, sticky='nesw')
 
-        self.btn_calib = Button(win, text="Calibration", command=self.calibration)
+        self.btn_calib = Button(win, text="Calibration", command=self.calibration, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_calib["state"] = "disabled"
-        self.btn_calib.config(font=("Arial", self.font_size))
+        self.btn_calib.config(font=("Times", self.font_size))
         self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
         self.calib_duration = 10000 #30000
 
         # Calibration time remaining
-        self.lbl_calib = Label(win, text='Calibration time: ')
-        self.lbl_calib.config(font=("Arial", self.font_size))
+        self.lbl_calib = Label(win, text='Calibration time: ', activebackground='#4682b4', bg='#abcdef')
+        self.lbl_calib.config(font=("Times", self.font_size))
         self.lbl_calib.grid(row=1, column=2, columnspan=2, pady=(20, 30), sticky='w')
 
         # BoMI map button and checkboxes
-        self.btn_map = Button(win, text="Calculate BoMI Map", command=self.train_map)
+        self.btn_map = Button(win, text="Calculate BoMI Map", command=self.train_map, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_map["state"] = "disabled"
-        self.btn_map.config(font=("Arial", self.font_size))
+        self.btn_map.config(font=("Times", self.font_size))
         self.btn_map.grid(row=2, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         self.check_alg = IntVar()
 
         # self.check_pca = BooleanVar()
-        self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0)
-        self.check_pca1.config(font=("Arial", self.font_size))
+        self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_pca1.config(font=("Times", self.font_size))
         self.check_pca1.grid(row=2, column=2, padx=(0, 20), pady=(20, 30), sticky='w')
 
         # self.check_ae = BooleanVar()
-        self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1)
-        self.check_ae1.config(font=("Arial", self.font_size))
+        self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_ae1.config(font=("Times", self.font_size))
         self.check_ae1.grid(row=2, column=3, padx=(0, 20), pady=(20, 30), sticky='w')
 
         # self.check_vae = BooleanVar()
-        self.check_vae1 = Radiobutton(win, text="Variational AE", variable=self.check_alg, value=2)
-        self.check_vae1.config(font=("Arial", self.font_size))
+        self.check_vae1 = Radiobutton(win, text="Variational AE", variable=self.check_alg, value=2, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_vae1.config(font=("Times", self.font_size))
         self.check_vae1.grid(row=2, column=4, pady=(20, 30), sticky='w')
 
-        self.btn_custom = Button(win, text="Customization", command=self.customization)
+        self.btn_custom = Button(win, text="Customization", command=self.customization, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_custom["state"] = "disabled"
-        self.btn_custom.config(font=("Arial", self.font_size))
+        self.btn_custom.config(font=("Times", self.font_size))
         self.btn_custom.grid(row=3, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
-        self.btn_start = Button(win, text="Practice", command=self.start)
+        self.btn_start = Button(win, text="Practice", command=self.start, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_start["state"] = "disabled"
-        self.btn_start.config(font=("Arial", self.font_size))
+        self.btn_start.config(font=("Times", self.font_size))
         self.btn_start.grid(row=4, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         # set label for number of target remaining
-        self.lbl_tgt = Label(win, text='Remaining targets: ')
-        self.lbl_tgt.config(font=("Arial", self.font_size))
+        self.lbl_tgt = Label(win, text='Remaining targets: ', activebackground='#4682b4', bg='#abcdef')
+        self.lbl_tgt.config(font=("Times", self.font_size))
         self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
 
 
         # Camera video input
-        self.btn_cam = Button(win, text='Ext. Video Source', command=self.selectVideoFile)
-        self.btn_cam.config(font=("Arial", self.font_size))
+        self.btn_cam = Button(win, text='Ext. Video Source', command=self.selectVideoFile,activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_cam.config(font=("Times", self.font_size))
         self.btn_cam.grid(row=5, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
         self.ent_cam = Entry(win, width=30)
-        self.ent_cam.config(font=("Arial", self.font_size))
+        self.ent_cam.config(font=("Times", self.font_size))
         self.ent_cam.grid(row=5, column=2, pady=(20, 30), columnspan=3, sticky='w')
-        self.btn_camClear = Button(win, text='Camera Video Source', command=self.clearVideoSource, bg='red')
-        self.btn_camClear.config(font=("Arial", self.font_size))
+        self.btn_camClear = Button(win, text='Camera Video Source', command=self.clearVideoSource, bg='red', activebackground='grey')
+        self.btn_camClear.config(font=("Times", self.font_size))
         self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         #############################################################
 
-        self.btn_close = Button(win, text="Close", command=win.destroy, bg="red")
-        self.btn_close.config(font=("Arial", self.font_size))
+        self.btn_close = Button(win, text="Close", command=win.destroy, bg="red", activebackground='grey')
+        self.btn_close.config(font=("Times", self.font_size))
         self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
     def selectVideoFile(self):
