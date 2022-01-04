@@ -22,9 +22,7 @@ RUN touch ~/.Xauthority \
 
 WORKDIR ${WS}
 RUN pip install --upgrade pip \
-	&& pip install . \
-	&& pip install tk \
-	&& pip install mouse
+	&& pip install -r requirements.txt
 
 
 RUN mkdir /root/videos
