@@ -20,6 +20,7 @@ import pyautogui
 import pygame
 import mouse
 import time
+import math
 
 
 class BoMIReaching(JointMapper):
@@ -68,9 +69,9 @@ class BoMIReaching(JointMapper):
             self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
             if self.check_mouse.get() == False:
-                self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode self.video_camera_device)
+                self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
             else:
-                self.start_mouse_control(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode self.video_camera_device)
+                self.start_mouse_control(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
@@ -261,7 +262,7 @@ class BoMIReaching(JointMapper):
         wfile_thread.start()
         print("writing reaching log file thread started in practice.")
 
-        print("cursor control thread is about to start...")
+        print("reaching task thread is about to start...")
 
         # -------- Main Program Loop -----------
         while not r.is_terminated:
@@ -343,7 +344,7 @@ class BoMIReaching(JointMapper):
                 lbl_tgt.update()
 
                 # --- Limit to 50 frames per second
-                clock.tick(self.interframe_delay)
+                clock.tick(self.refresh_rate)
 
         opencv_thread.join()
         mediapipe_thread.join()
@@ -362,7 +363,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
     def __init__(self, mainTk):
         CustomizationApplication.__init__(self, mainTk)
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, fps=120):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
         tk.Frame.__init__(self, parent)
         self.video_camera_device = video_camera_device
         self.parent = parent
@@ -424,9 +425,14 @@ class CustomizationApplicationReaching(CustomizationApplication):
         self.btn_close.config(font=("Arial", self.font_size))
         self.btn_close.grid(column=2, row=3, sticky='nesw', padx=(80, 0), pady=(40, 20))
 
-        self.refresh_rate = fps # frames per second at max
-        self.interframe_delay = 1/self.refresh_rate 
+        cap = cv_utils.VideoCaptureOpt(video_camera_device)
 
+        self.refresh_rate = math.ceil(cap.get(cv2.CAP_PROP_FPS)) # frames per second at max
+        cap.release()
+        if self.refresh_rate <= 0:
+            self.refresh_rate = 30
+        self.interframe_delay = 1/self.refresh_rate 
+        
 
     # functions to retrieve values of textbox programmatically
     def retrieve_txt_rot(self):
@@ -493,13 +499,13 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r))
+        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
         opencv_thread.start()
         print("openCV thread started in customization.")
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
         mediapipe_thread.start()
         print("mediapipe thread started in customization.")
 
@@ -609,7 +615,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
                 pygame.display.flip()
 
                 # --- Limit to 50 frames per second
-                clock.tick(self.interframe_delay)
+                clock.tick(self.refresh_rate)
 
         opencv_thread.join()
         mediapipe_thread.join()

@@ -49,6 +49,7 @@ fps = 50
 
 class SharedDetImage:
     def __init__(self):
+        self.image_id = 0
         self.image = None
         self.result = None
         self.result_face = None
@@ -344,13 +345,13 @@ class JointMapper(tk.Frame):
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r))
+        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, calib_duration))
         opencv_thread.start()
         print("openCV thread started in calibration.")
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
         mediapipe_thread.start()
         print("mediapipe thread started in calibration.")
 
@@ -367,14 +368,26 @@ class JointMapper(tk.Frame):
         mp_drawing = mp.solutions.drawing_utils
         mp_drawing_styles = mp.solutions.drawing_styles
 
+        #DEBUG
+        #debug_prev_image_id = -1
+        #debug_image_id = 0
+        #prev_time_frame = time.time()
 
         while not r.is_terminated:
 
             # safe access to the current image and results, since they can
             # be modified by the mediapipe_forwardpass thread
             with self.current_image_data.lock:
+                #debug_image_id = self.current_image_data.image_id
                 frame = copy.deepcopy(self.current_image_data.image)
                 results = copy.deepcopy(self.current_image_data.result)
+
+            #if debug_image_id != debug_prev_image_id:
+            #    time_between_frames = time.time() - prev_time_frame
+            #    prev_time_frame = time.time()
+            #    print('#DEBUG: time between frames {} id {}'.format(time_between_frames, debug_image_id))
+#
+            #    debug_prev_image_id = debug_image_id
 
             if frame is None or results is None:
                 continue
@@ -415,8 +428,8 @@ class JointMapper(tk.Frame):
             if cv2.waitKey(1) == 27:
                 break  # esc to quit
 
-            if timer_calib.elapsed_time > calib_duration:
-                r.is_terminated = True
+            #if timer_calib.elapsed_time > calib_duration:
+            #    r.is_terminated = True
 
             # get current value of body
             body_calib.append(np.copy(self.body_wrap.body))

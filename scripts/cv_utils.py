@@ -1,5 +1,5 @@
 import cv2
-
+import math
 
 def check_available_videoio_backend(queryBackendName):
     availableBackends = [cv2.videoio_registry.getBackendName(b) for b in cv2.videoio_registry.getCameraBackends()]
@@ -17,7 +17,7 @@ def VideoCaptureOpt(videoSource):
     return cap
 
 
-def get_data_from_camera(cap, q_frame, r):
+def get_data_from_camera(cap, q_frame, r, duration=None):
     '''
     function that runs in the thread to capture current frame and put it into the queue
     :param cap: object of OpenCV class
@@ -25,13 +25,36 @@ def get_data_from_camera(cap, q_frame, r):
     :param r: object of Reaching class
     :return:
     '''
-    
-    while not r.is_terminated:
+
+    # Check the timing from within this function
+    # this allow to stop when either a camera has been recorded for at least 'duration' seconds
+    # or when an input video ended (which reading generally takes less time)
+
+    frames_read = 0
+
+    keep_reading_cap = True
+
+    fps_source = cap.get(cv2.CAP_PROP_FPS)
+    frames_lenght_source = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+
+    if fps_source <= 0:
+        fps_source = 30
+
+    if duration is not None:
+        frames_to_read = min(math.floor(duration*fps_source/1000), frames_lenght_source)
+    else:
+        frames_to_read = frames_lenght_source > 0 and frames_lenght_source or math.inf
+
+    while keep_reading_cap and not r.is_terminated:
         if not r.is_paused:
-            try:
-                ret, frame = cap.read()
+            ret, frame = cap.read()
+            if ret == True:
                 q_frame.put(frame)
-            except:
-                r.is_terminated = True
-        
+                frames_read += 1
+
+            if frames_read > frames_to_read:
+                keep_reading_cap = False
+        #else:
+        #    timer.pause()
+
     print('OpenCV thread terminated.')

@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 
-def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, mp_face_mesh=None, lock, q_frame, r, num_joints, joints, fps=120):
+def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, fps=120, mp_face_mesh=None):
 	"""
 	function that runs in the thread for estimating pose online
 	:param pose: object of Mediapipe class used to predict poses
@@ -23,9 +23,16 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, mp_face_
 
 	interframe_delay = float(1.0/fps)
 
-	while not r.is_terminated:
+	# DEBUG
+	debug_frame_analyzed = 0
+	debug_frame_skipped = 0
+
+	keep_reading_queue = True
+
+	while keep_reading_queue and not r.is_terminated:
 		start_time = 0
 		end_time = 0
+		elapsed_time = 0
 
 		if not r.is_paused:
 			start_time = time.time()
@@ -35,18 +42,26 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, mp_face_
 				# wait as the queue might be empty just due to fast
 				# consumption, not for the end of the stream
 				curr_frame = q_frame.get(block=True, timeout=1.0)
-				body_list = []
+				#if curr_frame is None:
+				#	raise queue.Empty
 			except queue.Empty:
-				pass
+				keep_reading_queue = False # exit if the queue is empty (and has been so for >1 sec)
 			else:
+				if curr_frame is None:
+					continue
+
+				body_list = []
+				debug_frame_analyzed+=1
 				with image_data.lock:
 					# Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
+					image_data.image_id += 1
 					image_data.image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
 					# To improve performance, optionally mark the image as not writeable to pass by reference.
 					image_data.image.flags.writeable = False
 					image_data.result = holistic.process(image_data.image)
-					if mp_face_mesh is not None:
-						image_data.result_face = mp_face_mesh.process(image_data.image)
+
+					#if mp_face_mesh is not None:
+					#	image_data.result_face = mp_face_mesh.process(image_data.image)
 
 				if not image_data.result.pose_landmarks:
 					continue
@@ -87,17 +102,23 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, mp_face_
 
 				# Skip the next n frames, in order to keep the same fps as the
 				# video source
-				time_elapsed = end_time - start_time
-				frames_to_be_skipped = math.ceil(time_elapsed*fps)
+				elapsed_time = end_time - start_time
+				#print('#DEBUP-PIPE: time elapsed {}'.format(elapsed_time))
+				frames_to_be_skipped = math.floor(elapsed_time*fps)
 				for i in range(frames_to_be_skipped):
 					try:
 						_ = q_frame.get(block=False)
-						pass
 					except queue.Empty:
 						pass
+					else:
+						debug_frame_skipped += 1
 		
-		time.sleep(max(0, interframe_delay - (end_time - start_time)))
+		time.sleep(max(0, interframe_delay - elapsed_time))
 
+	# set the rec phase to be considered ended only after mediapipe finished consuming the input queue
+	r.is_terminated = True
+
+	#print('#DEBUG: frame processed {} frame skipped {} total frames {}'.format(debug_frame_analyzed, debug_frame_skipped, debug_frame_analyzed + debug_frame_skipped))
 	print('Mediapipe_forwardpass thread terminated.')
 
 
