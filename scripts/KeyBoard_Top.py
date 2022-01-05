@@ -1,3 +1,4 @@
+import math
 import tkinter as tk
 import scripts.tk_utils as tk_utils
 
@@ -6,18 +7,34 @@ shift_on = False
 
 
 
-class KeyBoard_Top(tk_utils.popupWindow):
+class KeyBoard_Top(object):
 
     def __init__(self, master):
-        super().__init__(master, "keyboard_12")
-        self.top.title('My keyboard')
+        top = self.top = tk.Toplevel(master)
+
+        self.top.title('keyboard 12')
         self.top['bg'] = 'powder blue'
-        self.top.geometry('300x200')
-        self.top.resizable(0, 0)
+    
+        screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
+
+        screen_width = screensize[0]
+        screen_height = screensize[1]
+
+        window_width = math.ceil(screen_width / 2)
+        window_height = math.ceil(screen_height / 2)
+
+
+        x_cordinate = int((screen_width / 2) - (window_width / 2))
+        y_cordinate = int((screen_height / 2) - (window_height / 2))
+
+        self.top.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
+
+        #self.top.resizable(0, 0)
 
         self.label1 = tk.Label(self.top, text="Group 12 keyboard", font=('arial', 30, 'bold'),
-                       bg='powder blue', fg="#000000").grid(row=0, column=0, columnspan=14)
-        self.entry = tk.Text(self.top, width=140, font=('arial', 10, 'bold'))
+                       bg='powder blue', fg="#000000")
+        self.label1.grid(row=0, column=0, columnspan=14)
+        self.entry = tk.Text(self.top, height=4, font=('arial', 10, 'bold'))
         self.entry.grid(row=1, column=0, columnspan=14)
 
         buttons = ['1','2','3','4','5','6','7','8','9','0','-','=','<--',
@@ -53,7 +70,7 @@ class KeyBoard_Top(tk_utils.popupWindow):
 
         # Add save button
         self.save_btn = tk.Button(self.top, text='Save', width=4, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
-                        activebackground="#ffffff", activeforeground="#000990", relief='raised',
+                        bg="#22bb44", activebackground="#11aa33", activeforeground="#000990", relief='raised',
                         command=command).grid(row=var_row + 2, column=1)
     
     def select(self, entry, value):
@@ -82,3 +99,6 @@ class KeyBoard_Top(tk_utils.popupWindow):
                     uppercase = not uppercase
                     shift_on == False
             entry.insert('end', value)
+
+    def cleanup(self):
+        self.top.destroy()

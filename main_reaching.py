@@ -49,6 +49,11 @@ class BoMIReaching(JointMapper):
         self.refresh_rate = 30 # frames per second at max
         self.interframe_delay = 1/self.refresh_rate 
 
+        ########### DEBUG
+        kb_app = KeyBoard_Top(self.master)
+        ###############
+
+
     def map_to_workspace(self, drPath, train_cu):
         r = Reaching()
 
@@ -164,7 +169,7 @@ class BoMIReaching(JointMapper):
             #keyboard_thread.setName('Kb_thread')
             #keyboard_thread.start()
             #kb_app = kb_utils.keyboard_interface(self.parent)
-            kb_app = KeyBoard_Top(self)
+            kb_app = KeyBoard_Top(self.master)
             print("Keyboard interface started in calibration.")
 
         print("cursor control thread is about to start...")
