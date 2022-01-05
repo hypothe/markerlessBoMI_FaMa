@@ -5,6 +5,8 @@ import tkinter
 uppercase = False  # use uppercase chars.
 shift_on = False
 
+
+
 def raise_above(window):
     window.lift()
     window.attributes('-topmost', True)
@@ -42,7 +44,6 @@ class KeyBoard_Top(tk.Toplevel):
 
     def __init__(self, master):
         super().__init__(master)
-
         self.title('My keyboard')
         self['bg'] = 'powder blue'
         self.resizable(0, 0)

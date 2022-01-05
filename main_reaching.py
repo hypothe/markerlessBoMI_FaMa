@@ -15,6 +15,8 @@ import tkinter as tk
 from tkinter import Label, Button, BooleanVar, Checkbutton, Text, Entry, Radiobutton, IntVar
 from tkinter import filedialog as fd
 from tkinter.messagebox import showinfo
+from tkinter import messagebox
+from tkinter.messagebox import showerror
 
 # For pygame
 import pygame
@@ -60,8 +62,6 @@ CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 
 # TODO
 # calib_duration to be set back to 30000
-# check why the tk button window goes back after opening (Windows only)
-
 
 def sigmoid(x, L=1, k=1, x0=0, offset=0):
   return offset + L / (1 + math.exp(k*(x0-x)))
@@ -73,6 +73,9 @@ def doubleSigmoid(x):
     else:
         return sigmoid(x, L=0.5, k=12, x0=0.5, offset=0.)
 
+def on_closing():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        win.destroy()
 
 def raise_above_all(window):
     window.lift()
@@ -283,17 +286,21 @@ class MainApplication(tk.Frame):
             self.btn_custom["state"] = "normal"
             self.btn_start["state"] = "normal"
             print('Joints correctly selected.')
+        else:
+            self.w = popupWindow(self.master, "No Joint selected.")
 
     def calibration(self):
         # start calibration dance - collect webcam data
         self.w = popupWindow(self.master, "You will now start calibration.")
         self.master.wait_window(self.w.top)
-        # This variable helps to check which joint to display
-        self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
-                                self.check_forefinger.get(), self.check_fingers.get()]
-        self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
-                            self.check_summary, self.video_camera_device)
-        self.btn_map["state"] = "normal"
+        if self.w.status:
+            # This variable helps to check which joint to display
+            self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
+                                    self.check_forefinger.get(), self.check_fingers.get()]
+
+            self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
+                                self.check_summary, self.video_camera_device)
+            self.btn_map["state"] = "normal"
 
 
     def train_map(self):
@@ -321,7 +328,8 @@ class MainApplication(tk.Frame):
         else:
             self.w = popupWindow(self.master, "Perform calibration first.")
             self.master.wait_window(self.w.top)
-            self.btn_map["state"] = "disabled"
+            if self.w.status:
+                self.btn_map["state"] = "disabled"
 
     def customization(self):
         # check whether PCA/AE parameters have been saved
@@ -335,7 +343,8 @@ class MainApplication(tk.Frame):
         else:
             self.w = popupWindow(self.master, "Compute BoMI map first.")
             self.master.wait_window(self.w.top)
-            self.btn_custom["state"] = "disabled"
+            if self.w.status:
+                self.btn_custom["state"] = "disabled"
 
     def start(self):
         # check whether customization parameters have been saved
@@ -343,16 +352,16 @@ class MainApplication(tk.Frame):
             # open pygame and start reaching task
             self.w = popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
-                            self.check_mouse.get(), self.check_kb.get(), self.video_camera_device)
-            # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
-            # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            if self.w.status:
+                self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode,
+                                self.check_mouse.get(), self.check_kb.get(), self.video_camera_device)
+                # [ADD CODE HERE: one of the argument of start reaching should be [self.check_mouse]
+                # to check in the checkbox is enable] !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         else:
             self.w = popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
-
 
     def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
         """
@@ -578,13 +587,13 @@ class MainApplication(tk.Frame):
 
         # Open a new window
         size = (r.width, r.height)
-        if mouse_bool == False:
+        if not mouse_bool:
             screen = pygame.display.set_mode(size)
 
         else:
             print("Control the mouse")
 
-            if keyboard_bool == True:
+            if keyboard_bool:
                 print("Digit your message!")
         # screen = pygame.display.toggle_fullscreen()
 
@@ -654,10 +663,11 @@ class MainApplication(tk.Frame):
         wfile_thread.start()
         print("writing reaching log file thread started in practice.")
 
-        if keyboard_bool == True:
+        if keyboard_bool:
             # initialize keyboard operations
             keyboard_thread = Thread(target=keyboard_interface,
-                                     args=())
+                                    args=())
+            keyboard_thread.setName('Kb_thread')
             keyboard_thread.start()
             print("Keyboard interface started in calibration.")
 
@@ -696,7 +706,7 @@ class MainApplication(tk.Frame):
                     (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
                 # Check if the crs is bouncing against any of the 4 walls:
 
-                if mouse_bool == False:
+                if not mouse_bool:
 
                     if r.crs_x >= r.width:
                         r.crs_x = r.width
@@ -712,7 +722,7 @@ class MainApplication(tk.Frame):
 
                 # if mouse checkbox was enabled do not draw the reaching GUI,
                 # only change coordinates of the computer cursor
-                if mouse_bool == True:
+                if mouse_bool:
 
                     # pyautogui.move(r.crs_x, r.crs_y, pyautogui.FAILSAFE)
                     mouse.move(r.crs_x, r.crs_y, absolute=True, duration=1 / 50)
@@ -768,7 +778,12 @@ class MainApplication(tk.Frame):
                                 main_app.check_kb1.update()
                                 mouse_bool = False
                                 keyboard_bool = False
-                                keyboard_thread.join()
+                                keyboard_thread_kill = Thread(target=keyboard_interface,
+                                                         args=(None, False, ))
+                                keyboard_thread_kill.start()
+                                r.is_terminated = True
+                                print('r is terminated')
+
                         else:
                             rg_eye_blk_start = 0.0
                             lf_eye_blk_start = 0.0
@@ -826,6 +841,7 @@ class MainApplication(tk.Frame):
         cap.release()
         cv2.destroyAllWindows()
         print("openCV object released in practice.")
+
 
 class CustomizationApplication(tk.Frame):
     """
@@ -926,7 +942,6 @@ class CustomizationApplication(tk.Frame):
         self.parent.destroy()
         self.mainTk.btn_start["state"] = "normal"
 
-
 class popupWindow(object):
     """
     class that defines the popup tkinter window
@@ -938,8 +953,10 @@ class popupWindow(object):
         self.lbl.pack()
         self.btn = Button(top, text='Ok', command=self.cleanup)
         self.btn.pack()
+        self.status = False
 
     def cleanup(self):
+        self.status = True
         self.top.destroy()
 
 def check_available_videoio_backend(queryBackendName):
@@ -1491,6 +1508,8 @@ if __name__ == "__main__":
     y_cordinate = int((screen_height / 2) - (window_height / 2))
 
     win.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
+
+    win.protocol("WM_DELETE_WINDOW", on_closing)
 
     main_app = MainApplication(win)
 
