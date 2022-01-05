@@ -1,6 +1,13 @@
 import tkinter as tk
 import math
 
+# Define some colors
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
 # WORKAROUND in order to get the correct screen resolution in a
 # multi-screen setup
 def get_curr_screen_geometry():

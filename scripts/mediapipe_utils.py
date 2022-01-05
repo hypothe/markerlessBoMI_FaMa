@@ -1,5 +1,6 @@
 import math
 import mediapipe as mp
+from scripts.tk_utils import GREEN
 import cv2
 import queue
 import numpy as np
@@ -34,6 +35,7 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 	# NOTE: this eats up the first element in said queue, not a drama here
 	# but neither so elegant it won't come bite us back later on.
 	_ = q_frame.get(block=True, timeout=10.0)
+
 
 	while keep_reading_queue and not r.is_terminated:
 		start_time = 0
@@ -105,13 +107,13 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 					body_wrap.body = np.copy(body_mp)
 
 				# consume the source at the correct frequecy      
-				end_time = time.time()
+				#end_time = time.time()
 
 				# Skip the next n frames, in order to keep the same fps as the
 				# video source
-				elapsed_time = end_time - start_time
-				#print('#DEBUP-PIPE: time elapsed {}'.format(elapsed_time))
-				frames_to_be_skipped = math.floor(elapsed_time*fps)
+				elapsed_time = time.time() - start_time
+				frames_to_be_skipped = math.ceil(elapsed_time*fps)
+				#print('#DEBUG-PIPE: time elapsed {} frames to skip {} q_size {}'.format(elapsed_time, frames_to_be_skipped, q_frame.qsize()))
 				for i in range(frames_to_be_skipped):
 					try:
 						_ = q_frame.get(block=False)

@@ -1,5 +1,6 @@
 import cv2
 import math
+from scripts.stopwatch import StopWatch
 
 def check_available_videoio_backend(queryBackendName):
     availableBackends = [cv2.videoio_registry.getBackendName(b) for b in cv2.videoio_registry.getCameraBackends()]
@@ -44,6 +45,11 @@ def get_data_from_camera(cap, q_frame, r, duration=None):
         frames_to_read = min(math.floor(duration*fps_source/1000), frames_lenght_source)
     else:
         frames_to_read = frames_lenght_source
+        duration = math.inf
+    #print('#DEBUG frames to read: {}'.format(frames_to_read))
+
+    cv_timer = StopWatch()
+    cv_timer.start()
 
     while keep_reading_cap and not r.is_terminated:
         if not r.is_paused:
@@ -52,9 +58,9 @@ def get_data_from_camera(cap, q_frame, r, duration=None):
                 q_frame.put(frame)
                 frames_read += 1
 
-            if frames_read > frames_to_read:
+            if frames_read > frames_to_read or cv_timer.elapsed_time > duration:
                 keep_reading_cap = False
         #else:
         #    timer.pause()
-
+        # 
     print('OpenCV thread terminated.')

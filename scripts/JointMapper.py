@@ -25,7 +25,7 @@ import scripts.cv_utils as cv_utils
 from scripts.stopwatch import StopWatch
 from scripts.filter_butter_online import FilterButter3
 import scripts.reaching_functions as reaching_functions
-import scripts.tk_utilities as tk_utils
+import scripts.tk_utils as tk_utils
 import scripts.mediapipe_utils as mediapipe_utils
 # For controlling computer cursor
 import pyautogui
@@ -352,7 +352,7 @@ class JointMapper(tk.Frame):
         print("mediapipe thread started in calibration.")
 
         # start the timer for calibration
-        timer_calib.start()
+        #timer_calib.start()
 
         print("main thread: Starting calibration...")
 
@@ -364,26 +364,17 @@ class JointMapper(tk.Frame):
         mp_drawing = mp.solutions.drawing_utils
         mp_drawing_styles = mp.solutions.drawing_styles
 
-        #DEBUG
-        #debug_prev_image_id = -1
-        #debug_image_id = 0
-        #prev_time_frame = time.time()
 
         while not r.is_terminated:
 
             # safe access to the current image and results, since they can
             # be modified by the mediapipe_forwardpass thread
             with self.current_image_data.lock:
-                #debug_image_id = self.current_image_data.image_id
+                if self.current_image_data.image_id == 1:
+                    timer_calib.start()
                 frame = copy.deepcopy(self.current_image_data.image)
                 results = copy.deepcopy(self.current_image_data.result)
 
-            #if debug_image_id != debug_prev_image_id:
-            #    time_between_frames = time.time() - prev_time_frame
-            #    prev_time_frame = time.time()
-            #    print('#DEBUG: time between frames {} id {}'.format(time_between_frames, debug_image_id))
-#
-            #    debug_prev_image_id = debug_image_id
 
             if frame is None or results is None:
                 continue

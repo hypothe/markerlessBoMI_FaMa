@@ -13,8 +13,10 @@ from scripts.filter_butter_online import FilterButter3
 import scripts.compute_bomi_map as compute_bomi_map
 import scripts.cv_utils as cv_utils
 from scripts.JointMapper import JointMapper, CustomizationApplication
-import scripts.tk_utilities as tk_utils
+import scripts.tk_utils as tk_utils
+from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
+import scripts.keyboard_utils as kb_utils
 import tkinter as tk
 from tkinter import Label, Text, Button
 import pyautogui
@@ -35,6 +37,13 @@ class BoMIReaching(JointMapper):
         self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
         self.check_m1.config(font=("Arial", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
+
+        # keyboard
+
+        self.check_kb = tk.BooleanVar()
+        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb)
+        self.check_kb1.config(font=("Arial", self.font_size))
+        self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w')
 
         self.refresh_rate = 30 # frames per second at max
         self.interframe_delay = 1/self.refresh_rate 
@@ -72,14 +81,20 @@ class BoMIReaching(JointMapper):
             if self.check_mouse.get() == False:
                 self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
             else:
-                self.start_mouse_control(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
+                self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode, self.video_camera_device, self.check_kb.get())
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
             
-    def start_mouse_control(self, drPath, lbl_tgt, num_joints, joints, dr_mode, video_device=0):
-        
+    def start_mouse_control(self, drPath, num_joints, joints, dr_mode, video_device=0, keyboard_bool=False):
+        """
+        function to perform online cursor control
+        :param drPath: path where to load the BoMI forward map and customization values
+        :param mouse_bool: tkinter Boolean value that triggers mouse control instead of reaching task
+        :param keyboard_bool: tkinter Boolean value that activates the digital keyboard
+        :return:
+        """
         print("Mouse control active")
 
         # Create object of openCV, Reaching class and filter_butter3
@@ -87,9 +102,6 @@ class BoMIReaching(JointMapper):
 
         r = Reaching()
         filter_curs = FilterButter3("lowpass_4")
-
-        # Open a new window
-        size = (r.width, r.height)
 
         # initialize targets and the reaching log file header
         reaching_functions.initialize_targets(r)
@@ -142,6 +154,16 @@ class BoMIReaching(JointMapper):
                                 args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), face_mesh))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
+
+        # Keyboard Thread
+        if keyboard_bool:
+            # initialize keyboard operations
+            #keyboard_thread = Thread(target=kb_utils.keyboard_interface,
+            #                        args=(self.parent))
+            #keyboard_thread.setName('Kb_thread')
+            #keyboard_thread.start()
+            kb_app = kb_utils.keyboard_interface(self.parent)
+            print("Keyboard interface started in calibration.")
 
         print("cursor control thread is about to start...")
 
@@ -225,6 +247,11 @@ class BoMIReaching(JointMapper):
 
                 time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
 
+        # Close the keyboard
+        if not keyboard_bool:
+            print("#DEBUG: Closing the kb")
+            kb_app.destroy()
+
         opencv_thread.join()
         mediapipe_thread.join()
 
@@ -248,12 +275,7 @@ class BoMIReaching(JointMapper):
 
         ############################################################
 
-        # Define some colors
-        BLACK = (0, 0, 0)
-        RED = (255, 0, 0)
-        GREEN = (0, 255, 0)
-        YELLOW = (255, 255, 0)
-        CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
+
 
         # Create object of openCV, Reaching class and filter_butter3
         cap = cv_utils.VideoCaptureOpt(video_device)
