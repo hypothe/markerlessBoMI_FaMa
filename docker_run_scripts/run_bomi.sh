@@ -4,7 +4,7 @@
 
 xhost +local:docker
 
-DOCKER_ENV='--env DISPLAY=$DISPLAY --env XDG_RUNTIME_DIR --env QT_X11_NO_MITSHM=1'
+DOCKER_ENV="--env DISPLAY=$DISPLAY --env XDG_RUNTIME_DIR --env QT_X11_NO_MITSHM=1"
 
 
 dpkg -l | grep nvidia-container-toolkit &> /dev/null
@@ -28,6 +28,6 @@ else
 fi
 
 $DOCKER_COMMAND \
-    --privileged -it --rm $DOCKER_ENV \
+    --privileged -it --rm ${DOCKER_ENV} \
     -v /tmp/.X11-unix:/tmp/.X11-unix --network=host  \
     hypothe/bomi_fama
