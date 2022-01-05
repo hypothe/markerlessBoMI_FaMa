@@ -55,7 +55,7 @@ def keyboard_interface(root = None, start = True):
             keyboard_app = tk.Tk()
             print('Main')
         else:
-            keyboard_app = root #tk.Toplevel(root)
+            keyboard_app = tk.Toplevel(root)
             print('Top')
 
         keyboard_app.title("My keyboard")

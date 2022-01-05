@@ -13,6 +13,7 @@ from scripts.filter_butter_online import FilterButter3
 import scripts.compute_bomi_map as compute_bomi_map
 import scripts.cv_utils as cv_utils
 from scripts.JointMapper import JointMapper, CustomizationApplication
+from scripts.KeyBoard_Top import KeyBoard_Top
 import scripts.tk_utils as tk_utils
 from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
@@ -162,7 +163,8 @@ class BoMIReaching(JointMapper):
             #                        args=(self.parent))
             #keyboard_thread.setName('Kb_thread')
             #keyboard_thread.start()
-            kb_app = kb_utils.keyboard_interface(self.parent)
+            #kb_app = kb_utils.keyboard_interface(self.parent)
+            kb_app = KeyBoard_Top(self)
             print("Keyboard interface started in calibration.")
 
         print("cursor control thread is about to start...")
@@ -250,7 +252,7 @@ class BoMIReaching(JointMapper):
         # Close the keyboard
         if not keyboard_bool:
             print("#DEBUG: Closing the kb")
-            kb_app.destroy()
+            kb_app.cleanup()
 
         opencv_thread.join()
         mediapipe_thread.join()
