@@ -141,16 +141,17 @@ class BoMIReaching(JointMapper):
                                           refine_landmarks=True,
                                           min_detection_confidence=0.5,
                                           min_tracking_confidence=0.5)
+        # Create eye-counters objects
         left_eye = bd_utils.Eye()
         right_eye = bd_utils.Eye()
 
-
         # load scaling values for covering entire monitor workspace
-        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "_dr")
+        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")
         scale_dr = self.map_workspace2screenspace_offsetScale(scale_dr)
         off_dr = self.map_workspace2screenspace_offsetScale(off_dr)
 
-        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "_custom")
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "custom")
+        screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
@@ -206,7 +207,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screensize[0], screensize[1])
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 # Filter the cursor
@@ -265,7 +266,7 @@ class BoMIReaching(JointMapper):
                 time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
 
         # Close the keyboard
-        if not keyboard_bool:
+        if keyboard_bool:
             print("#DEBUG: Closing the kb")
             kb_app.cleanup()
 
@@ -329,8 +330,8 @@ class BoMIReaching(JointMapper):
 
         # load scaling values for covering entire monitor workspace
         # load scaling values for covering entire monitor workspace
-        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "_dr")
-        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "_custom")
+        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "custom")
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
