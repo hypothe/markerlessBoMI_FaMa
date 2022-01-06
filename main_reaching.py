@@ -49,10 +49,6 @@ class BoMIReaching(JointMapper):
         self.refresh_rate = 30 # frames per second at max
         self.interframe_delay = 1/self.refresh_rate 
 
-        ########### DEBUG
-        kb_app = KeyBoard_Top(self.master)
-        ###############
-
 
     def map_to_workspace(self, drPath, train_cu):
         r = Reaching()
@@ -246,7 +242,8 @@ class BoMIReaching(JointMapper):
                         pyautogui.mouseUp(button='right')
                         is_mouse_down = False
 
-
+                    # update keyboard
+                    self.master.update()
                     if cv2.waitKey(1) == 27:
                         break  # esc to quit
 

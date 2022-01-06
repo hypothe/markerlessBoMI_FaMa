@@ -57,7 +57,7 @@ class KeyBoard_Top(object):
                 btn.grid(row=var_row, column=var_col)
             else:
                 btn = tk.Button(self.top, text=button, width=100, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
-                               activebackground="#ffffff", activeforeground="#000990", relief='raised',
+                               bg="#cccccc", activebackground="#ffffff", activeforeground="#000990", relief='raised',
                                command=command)
                 btn.grid(row=var_row + 1, column=var_col, columnspan=14)
 
@@ -72,6 +72,7 @@ class KeyBoard_Top(object):
         self.save_btn = tk.Button(self.top, text='Save', width=4, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
                         bg="#22bb44", activebackground="#11aa33", activeforeground="#000990", relief='raised',
                         command=command).grid(row=var_row + 2, column=1)
+        self.top.update_idletasks()
     
     def select(self, entry, value):
         global uppercase, shift_on
