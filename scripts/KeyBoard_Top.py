@@ -1,7 +1,7 @@
 import math
 import tkinter as tk
 from tkinter import Grid
-
+from datetime import date, datetime
 import pyautogui
 import scripts.tk_utils as tk_utils
 
@@ -22,8 +22,8 @@ class KeyBoard_Top(object):
 		window_width = math.ceil(screen_width / 2)
 		window_height = math.ceil(screen_height / 2)
 
-		x_cordinate = int((screen_width / 2) - (window_width / 2) - (screen_width / 8))
-		y_cordinate = int((screen_height / 2) - (window_height / 2))
+		# x_cordinate = int((screen_width / 2) - (window_width / 2) - (screen_width / 8))
+		# y_cordinate = int((screen_height / 2) - (window_height / 2))
 
 		self.top.rowconfigure(0, weight=1)
 		self.top.rowconfigure(1, weight=1)
@@ -72,9 +72,20 @@ class KeyBoard_Top(object):
 		# Add save button
 		self.save_btn = tk.Button(self.top, text='Save', width=4, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
 						bg="#22bb44", activebackground="#11aa33", activeforeground="#000990", relief='raised',
-						command=command).grid(row=var_row + 1, column=0)
+						command=self.save_text).grid(row=var_row + 1, column=0)
 		self.top.update_idletasks()
-	
+
+	def save_text(self):
+
+		now = datetime.now()
+		now = now.strftime("%Y_%m_%d_%H_%M_%S")
+		input = self.entry.get("1.0", 'end-1c')
+		filename = now + "_keyboard.txt"
+		with open(filename, 'w') as f:
+			f.write(input)
+		print(filename + " saved.")
+
+
 	def select(self, entry, value):
 		global uppercase, shift_on
 
@@ -97,9 +108,9 @@ class KeyBoard_Top(object):
 		else:
 			if uppercase:
 				value = value.upper()
-				if shift_on == True:
+				if shift_on:
 					uppercase = not uppercase
-					shift_on == False
+					shift_on = False
 			entry.insert('end', value)
 
 	def cleanup(self):
