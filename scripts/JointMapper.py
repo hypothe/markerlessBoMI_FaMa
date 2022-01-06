@@ -42,7 +42,6 @@ import copy
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
 
-
 class SharedDetImage:
     def __init__(self):
         self.image_id = 0
@@ -51,9 +50,11 @@ class SharedDetImage:
         self.result_face = None
         self.lock = Lock()
 
+
 class BodyWrap:
     def __init__(self):
         self.body = None
+
 
 class JointMapper(tk.Frame):
     """
@@ -239,46 +240,50 @@ class JointMapper(tk.Frame):
             self.btn_custom["state"] = "normal"
             self.btn_start["state"] = "normal"
             print('Joints correctly selected.')
+        else:
+            self.w = tk_utils.popupWindow(self.master, "No Joint selected.")
 
     def calibration(self):
         # start calibration dance - collect webcam data
         self.w = tk_utils.popupWindow(self.master, "You will now start calibration.")
         self.master.wait_window(self.w.top)
-        # This variable helps to check which joint to display
-        self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
-                                self.check_forefinger.get(), self.check_fingers.get()]
-        self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
-                            self.check_summary, self.video_camera_device)
-        self.btn_map["state"] = "normal"
+        if self.w.status:
+            # This variable helps to check which joint to display
+            self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
+                                    self.check_forefinger.get(), self.check_fingers.get()]
+            self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
+                                self.check_summary, self.video_camera_device)
+            self.btn_map["state"] = "normal"
 
     def train_map(self):
         # check whether calibration file exists first
         if os.path.isfile(self.calibPath + "Calib.txt"):
             self.w = tk_utils.popupWindow(self.master, "You will now train BoMI map")
             self.master.wait_window(self.w.top)
-            print(self.check_alg.get())
+            if self.w.status:
+                print(self.check_alg.get())
 
-            if self.check_alg.get() == 0:
-                self.drPath = self.calibPath + 'PCA/'
-                train_cu = train_pca(self.calibPath, self.drPath, self.n_map_component)
-                self.dr_mode = 'pca'
+                if self.check_alg.get() == 0:
+                    self.drPath = self.calibPath + 'PCA/'
+                    train_cu = train_pca(self.calibPath, self.drPath, self.n_map_component)
+                    self.dr_mode = 'pca'
 
-            elif self.check_alg.get() == 1:
-                self.drPath = self.calibPath + 'AE/'
-                train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
-                self.dr_mode = 'ae'
+                elif self.check_alg.get() == 1:
+                    self.drPath = self.calibPath + 'AE/'
+                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
+                    self.dr_mode = 'ae'
 
-            elif self.check_alg.get() == 2:
-                self.drPath = self.calibPath + 'AE/'
-                train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
-                self.dr_mode = 'ae'
+                elif self.check_alg.get() == 2:
+                    self.drPath = self.calibPath + 'AE/'
+                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
+                    self.dr_mode = 'ae'
 
-            # rotate, scale and offset the original features
-            # implementation-dependant (depends on the workspace of
-            # each variable, eg. screen space vs. joint space)
-            self.map_to_workspace(self.drPath, train_cu)
+                # rotate, scale and offset the original features
+                # implementation-dependant (depends on the workspace of
+                # each variable, eg. screen space vs. joint space)
+                self.map_to_workspace(self.drPath, train_cu)
 
-            self.btn_custom["state"] = "normal"
+                self.btn_custom["state"] = "normal"
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform calibration first.")
             self.master.wait_window(self.w.top)
@@ -410,7 +415,13 @@ class JointMapper(tk.Frame):
                     landmark_drawing_spec=mp_drawing_styles
                         .get_default_pose_landmarks_style())
             # Flip the image horizontally for a selfie-view display.
+            screen_width, screen_height = pyautogui.size()
+
+            window_width = math.ceil(screen_width / 2)
+            window_height = math.ceil(screen_height / 2)
+
             cv2.imshow(wind_name, frame)
+            cv2.moveWindow(wind_name, int(window_width / 2), int(window_height / 4))
 
             if cv2.waitKey(1) == 27:
                 break  # esc to quit

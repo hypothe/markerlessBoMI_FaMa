@@ -1,5 +1,6 @@
 import math
 import tkinter as tk
+from tkinter import Grid
 
 import pyautogui
 import scripts.tk_utils as tk_utils
@@ -8,31 +9,28 @@ uppercase = False  # use uppercase chars.
 shift_on = False
 
 
-
 class KeyBoard_Top(object):
 
 	def __init__(self, master):
-		top = self.top = tk.Toplevel(master)
+		self.top = tk.Toplevel(master)
 
 		self.top.title('keyboard 12')
 		self.top['bg'] = 'powder blue'
-	
-		#screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
 
-		#screen_width = screensize[0]
-		#screen_height = screensize[1]
 		screen_width, screen_height = pyautogui.size()
 
 		window_width = math.ceil(screen_width / 2)
 		window_height = math.ceil(screen_height / 2)
 
-
-		x_cordinate = int((screen_width / 2) - (window_width / 2))
+		x_cordinate = int((screen_width / 2) - (window_width / 2) - (screen_width / 8))
 		y_cordinate = int((screen_height / 2) - (window_height / 2))
 
-		self.top.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
+		self.top.rowconfigure(0, weight=1)
+		self.top.rowconfigure(1, weight=1)
+		self.top.rowconfigure(2, weight=1)
 
-		#self.top.resizable(0, 0)
+		#self.top.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
+		self.top.geometry("")
 
 		self.label1 = tk.Label(self.top, text="Group 12 keyboard", font=('arial', 30, 'bold'),
 					   bg='powder blue', fg="#000000")
@@ -54,15 +52,15 @@ class KeyBoard_Top(object):
 		for button in buttons:
 			command = lambda x = button: self.select(self.entry, x)
 			if button != 'Space':
-				btn = tk.Button(self.top, text=button, width=4, bd=12, font=('arial', 10, 'bold'),
+				btn = tk.Button(self.top, text=button, bd=12, font=('arial', 10, 'bold'),
 							   activebackground="#ffffff", activeforeground="#000990", relief='raised',
 							   command=command)
 				btn.grid(row=var_row, column=var_col)
 			else:
-				btn = tk.Button(self.top, text=button, width=100, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
+				btn = tk.Button(self.top, text=button, width=50, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
 							   bg="#cccccc", activebackground="#ffffff", activeforeground="#000990", relief='raised',
 							   command=command)
-				btn.grid(row=var_row + 1, column=var_col, columnspan=14)
+				btn.grid(row=var_row + 1, column=1, columnspan=14)
 
 			self.btns.append(btn)
 			var_col += 1
@@ -74,7 +72,7 @@ class KeyBoard_Top(object):
 		# Add save button
 		self.save_btn = tk.Button(self.top, text='Save', width=4, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
 						bg="#22bb44", activebackground="#11aa33", activeforeground="#000990", relief='raised',
-						command=command).grid(row=var_row + 2, column=1)
+						command=command).grid(row=var_row + 1, column=0)
 		self.top.update_idletasks()
 	
 	def select(self, entry, value):

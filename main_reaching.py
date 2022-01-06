@@ -19,6 +19,7 @@ from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
 import tkinter as tk
 from tkinter import Label, Text, Button
+from tkinter import messagebox
 import pyautogui
 import pygame
 import time
@@ -95,10 +96,13 @@ class BoMIReaching(JointMapper):
             # open pygame and start reaching task
             self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
             self.master.wait_window(self.w.top)
-            if self.check_mouse.get() == False:
-                self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints, self.dr_mode, self.video_camera_device)
-            else:
-                self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode, self.video_camera_device, self.check_kb.get())
+            if self.w.status:
+                if self.check_mouse.get() == False:
+                    self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints,
+                                        self.dr_mode, self.video_camera_device)
+                else:
+                    self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode,
+                                             self.video_camera_device, self.check_kb.get())
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
@@ -226,8 +230,12 @@ class BoMIReaching(JointMapper):
                     right_ratio, left_ratio = bd_utils.blink_ratio(frame, mesh_coords)
                     
                     frame.flags.writeable = True
+                    screen_width, screen_height = pyautogui.size()
+
+                    window_width = math.ceil(screen_width / 2)
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                     cv2.imshow(win_name, frame)
+                    cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
 
                     assert isinstance(right_ratio, object)
 
@@ -524,8 +532,14 @@ class CustomizationApplicationReaching(CustomizationApplication):
         cap.release()
         if self.refresh_rate <= 0:
             self.refresh_rate = 30
-        self.interframe_delay = 1/self.refresh_rate 
-        
+        self.interframe_delay = 1/self.refresh_rate
+
+
+    # function to close the main window
+    def on_closing(self):
+
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            self.destroy()
 
     # functions to retrieve values of textbox programmatically
     def retrieve_txt_rot(self):
@@ -740,11 +754,16 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         print('Customization values have been saved. You can continue with practice.')
 
+def on_closing():
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+        win.destroy()
 
 # MAIN
 if __name__ == "__main__":
     # initialize tkinter window
     win = tk_utils.win_init("BoMi Settings")
+
+    win.protocol("WM_DELETE_WINDOW", on_closing)
 
     obj = BoMIReaching(win=win, n_map_components=2)
 

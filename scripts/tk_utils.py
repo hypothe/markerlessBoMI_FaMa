@@ -1,6 +1,5 @@
 import tkinter as tk
 import math
-
 import pyautogui
 
 # Define some colors
@@ -62,6 +61,7 @@ def win_init(win_title):
 
 	return win
 
+
 def raise_above_all(window):
 	window.lift()
 	window.attributes('-topmost', True)
@@ -79,6 +79,8 @@ class popupWindow(object):
 		self.lbl.pack()
 		self.btn = tk.Button(top, text='Ok', command=self.cleanup)
 		self.btn.pack()
+		self.status = False
 
 	def cleanup(self):
+		self.status = True
 		self.top.destroy()
