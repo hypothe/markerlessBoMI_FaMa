@@ -17,7 +17,6 @@ from scripts.KeyBoard_Top import KeyBoard_Top
 import scripts.tk_utils as tk_utils
 from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
-import scripts.keyboard_utils as kb_utils
 import tkinter as tk
 from tkinter import Label, Text, Button
 import pyautogui
@@ -84,11 +83,10 @@ class BoMIReaching(JointMapper):
         # Note that offset and scale should suffice. Do not touch the "custom" transformation.
 
         r = Reaching()
+        screen_width, screen_height = pyautogui.size()
 
-        screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
-
-        param[0] *= screensize[0] / r.width
-        param[1] *= screensize[1] / r.height
+        param[0] *= screen_width / r.width
+        param[1] *= screen_height / r.height
         return param
 
     def start(self):
@@ -151,7 +149,7 @@ class BoMIReaching(JointMapper):
         off_dr = self.map_workspace2screenspace_offsetScale(off_dr)
 
         rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "custom")
-        screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
+        screen_width, screen_height = pyautogui.size()
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
@@ -207,7 +205,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screensize[0], screensize[1])
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screen_width, screen_height)
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 # Filter the cursor
@@ -267,7 +265,6 @@ class BoMIReaching(JointMapper):
 
         # Close the keyboard
         if keyboard_bool:
-            print("#DEBUG: Closing the kb")
             kb_app.cleanup()
 
         opencv_thread.join()

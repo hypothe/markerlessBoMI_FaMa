@@ -1,6 +1,8 @@
 import tkinter as tk
 import math
 
+import pyautogui
+
 # Define some colors
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
@@ -11,26 +13,26 @@ CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
 # WORKAROUND in order to get the correct screen resolution in a
 # multi-screen setup
 def get_curr_screen_geometry():
-    """
-    Workaround to get the size of the current screen in a multi-screen setup.
+	"""
+	Workaround to get the size of the current screen in a multi-screen setup.
 
-    Returns:
-        geometry (str): The standard Tk geometry string.
-            [width]x[height]+[left]+[top]
-    """
-    root = tk.Tk()
-    root.update_idletasks()
-    root.attributes('-fullscreen', True)
-    #root.attributes('-alpha', 0.1)
-    root.state('iconic')
-    geometry = root.winfo_geometry()
-    root.destroy()
-    return geometry
+	Returns:
+		geometry (str): The standard Tk geometry string.
+			[width]x[height]+[left]+[top]
+	"""
+	root = tk.Tk()
+	root.update_idletasks()
+	root.attributes('-fullscreen', True)
+	#root.attributes('-alpha', 0.1)
+	root.state('iconic')
+	geometry = root.winfo_geometry()
+	root.destroy()
+	return geometry
 
 def get_window_res_from_geometry(geomStr):
-    geo = [s.split('+') for s in geomStr.split('x')]
-    geo = [it for its in geo for it in its]
-    return (int(geo[0]), int(geo[1]))
+	geo = [s.split('+') for s in geomStr.split('x')]
+	geo = [it for its in geo for it in its]
+	return (int(geo[0]), int(geo[1]))
 
 def win_init(win_title):
 
@@ -42,10 +44,12 @@ def win_init(win_title):
 	#screen_width = win.winfo_screenwidth()
 	#screen_height = win.winfo_screenheight()
 
-	screensize = get_window_res_from_geometry(get_curr_screen_geometry())
+	#screensize = get_window_res_from_geometry(get_curr_screen_geometry())
 	
-	screen_width = screensize[0]
-	screen_height = screensize[1]
+	#screen_width = screensize[0]
+	#screen_height = screensize[1]
+	
+	screen_width, screen_height = pyautogui.size()
 
 	window_width = math.ceil(screen_width / 1.2)
 	window_height = math.ceil(screen_height / 1.2)
@@ -59,22 +63,22 @@ def win_init(win_title):
 	return win
 
 def raise_above_all(window):
-    window.lift()
-    window.attributes('-topmost', True)
-    window.attributes('-topmost', False)
+	window.lift()
+	window.attributes('-topmost', True)
+	window.attributes('-topmost', False)
 
 
 class popupWindow(object):
-    """
-    class that defines the popup tkinter window
-    """
+	"""
+	class that defines the popup tkinter window
+	"""
 
-    def __init__(self, master, msg):
-        top = self.top = tk.Toplevel(master)
-        self.lbl = tk.Label(top, text=msg)
-        self.lbl.pack()
-        self.btn = tk.Button(top, text='Ok', command=self.cleanup)
-        self.btn.pack()
+	def __init__(self, master, msg):
+		top = self.top = tk.Toplevel(master)
+		self.lbl = tk.Label(top, text=msg)
+		self.lbl.pack()
+		self.btn = tk.Button(top, text='Ok', command=self.cleanup)
+		self.btn.pack()
 
-    def cleanup(self):
-        self.top.destroy()
+	def cleanup(self):
+		self.top.destroy()
