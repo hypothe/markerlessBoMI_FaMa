@@ -74,6 +74,23 @@ class BoMIReaching(JointMapper):
         
         print("Screen-space affine tranformation done")
 
+    def map_workspace2screenspace_offsetScale(self, param):
+        """
+        Remap the learned mapping from the boundaries of the Reaching workspace to those of the
+        entire screen.
+        To do that reverse the workspace mapping first.
+        """
+
+        # Note that offset and scale should suffice. Do not touch the "custom" transformation.
+
+        r = Reaching()
+
+        screensize = tk_utils.get_window_res_from_geometry(tk_utils.get_curr_screen_geometry())
+
+        param[0] *= screensize[0] / r.width
+        param[1] *= screensize[1] / r.height
+        return param
+
     def start(self):
         # check whether customization parameters have been saved
         if os.path.isfile(self.drPath + "offset_custom.txt"):
@@ -88,6 +105,7 @@ class BoMIReaching(JointMapper):
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
+
             
     def start_mouse_control(self, drPath, num_joints, joints, dr_mode, video_device=0, keyboard_bool=False):
         """
@@ -128,16 +146,11 @@ class BoMIReaching(JointMapper):
 
 
         # load scaling values for covering entire monitor workspace
-        rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-        scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-        scale_dr = np.reshape(scale_dr, (scale_dr.shape[0],))
-        off_dr = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-        off_dr = np.reshape(off_dr, (off_dr.shape[0],))
-        rot_custom = pd.read_csv(drPath + 'rotation_custom.txt', sep=' ', header=None).values
-        scale_custom = pd.read_csv(drPath + 'scale_custom.txt', sep=' ', header=None).values
-        scale_custom = np.reshape(scale_custom, (scale_custom.shape[0],))
-        off_custom = pd.read_csv(drPath + 'offset_custom.txt', sep=' ', header=None).values
-        off_custom = np.reshape(off_custom, (off_custom.shape[0],))
+        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "_dr")
+        scale_dr = self.map_workspace2screenspace_offsetScale(scale_dr)
+        off_dr = self.map_workspace2screenspace_offsetScale(off_dr)
+
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "_custom")
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
@@ -315,16 +328,9 @@ class BoMIReaching(JointMapper):
 
 
         # load scaling values for covering entire monitor workspace
-        rot_dr = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-        scale_dr = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-        scale_dr = np.reshape(scale_dr, (scale_dr.shape[0],))
-        off_dr = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-        off_dr = np.reshape(off_dr, (off_dr.shape[0],))
-        rot_custom = pd.read_csv(drPath + 'rotation_custom.txt', sep=' ', header=None).values
-        scale_custom = pd.read_csv(drPath + 'scale_custom.txt', sep=' ', header=None).values
-        scale_custom = np.reshape(scale_custom, (scale_custom.shape[0],))
-        off_custom = pd.read_csv(drPath + 'offset_custom.txt', sep=' ', header=None).values
-        off_custom = np.reshape(off_custom, (off_custom.shape[0],))
+        # load scaling values for covering entire monitor workspace
+        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "_dr")
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "_custom")
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()

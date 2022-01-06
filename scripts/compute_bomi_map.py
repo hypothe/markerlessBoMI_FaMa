@@ -1030,3 +1030,10 @@ def load_bomi_map(dr_mode, drPath):
 
     return map
 
+def read_transform(drPath, spec):
+    rot = pd.read_csv(drPath + 'rotation_'+spec+'.txt', sep=' ', header=None).values
+    scale = pd.read_csv(drPath + 'scale_'+spec+'.txt', sep=' ', header=None).values
+    scale = np.reshape(scale, (scale.shape[0],))
+    off = pd.read_csv(drPath + 'offset_'+spec+'.txt', sep=' ', header=None).values
+    off = np.reshape(off, (off.shape[0],))
+    return rot, scale, off
