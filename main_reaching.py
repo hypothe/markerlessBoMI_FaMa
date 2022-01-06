@@ -602,11 +602,6 @@ class CustomizationApplicationReaching(CustomizationApplication):
         mediapipe_thread.start()
         print("mediapipe thread started in customization.")
 
-        # Define some colors
-        BLACK = (0, 0, 0)
-        GREEN = (0, 255, 0)
-        CURSOR = (0.19 * 255, 0.65 * 255, 0.4 * 255)
-
         pygame.init()
 
         # The clock will be used to control how fast the screen updates
