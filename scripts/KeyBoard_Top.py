@@ -2,6 +2,7 @@ import math
 import tkinter as tk
 from tkinter import Grid
 from datetime import date, datetime
+from tkinter import messagebox
 import pyautogui
 import scripts.tk_utils as tk_utils
 
@@ -22,15 +23,15 @@ class KeyBoard_Top(object):
 		window_width = math.ceil(screen_width / 2)
 		window_height = math.ceil(screen_height / 2)
 
-		# x_cordinate = int((screen_width / 2) - (window_width / 2) - (screen_width / 8))
-		# y_cordinate = int((screen_height / 2) - (window_height / 2))
+		x_coordinate = int((screen_width / 2) - (window_width / 2))
+		y_coordinate = int((screen_height / 2) - (window_height / 2))
 
 		self.top.rowconfigure(0, weight=1)
 		self.top.rowconfigure(1, weight=1)
 		self.top.rowconfigure(2, weight=1)
 
 		#self.top.geometry("{}x{}+{}+{}".format(window_width, window_height, x_cordinate, y_cordinate))
-		self.top.geometry("")
+		self.top.geometry("+{}+{}".format(x_coordinate, y_coordinate))
 
 		self.label1 = tk.Label(self.top, text="Group 12 keyboard", font=('arial', 30, 'bold'),
 					   bg='powder blue', fg="#000000")
@@ -73,6 +74,8 @@ class KeyBoard_Top(object):
 		self.save_btn = tk.Button(self.top, text='Save', width=4, padx=3, pady=3, bd=12, font=('arial', 10, 'bold'),
 						bg="#22bb44", activebackground="#11aa33", activeforeground="#000990", relief='raised',
 						command=self.save_text).grid(row=var_row + 1, column=0)
+
+		self.top.protocol("WM_DELETE_WINDOW", self.on_closing)
 		self.top.update_idletasks()
 
 	def save_text(self):
@@ -115,3 +118,7 @@ class KeyBoard_Top(object):
 
 	def cleanup(self):
 		self.top.destroy()
+
+	def on_closing(self):
+		if messagebox.askokcancel("Quit", "Do you want to quit?"):
+			self.cleanup()

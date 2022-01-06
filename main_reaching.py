@@ -144,8 +144,8 @@ class BoMIReaching(JointMapper):
                                           min_detection_confidence=0.5,
                                           min_tracking_confidence=0.5)
         # Create eye-counters objects
-        left_eye = bd_utils.Eye()
-        right_eye = bd_utils.Eye()
+        left_eye = bd_utils.Eye(200, 1000) #ms
+        right_eye = bd_utils.Eye(200, 1000) #ms
 
         # load scaling values for covering entire monitor workspace
         rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")
@@ -242,7 +242,7 @@ class BoMIReaching(JointMapper):
                     left_eye.set_ratio(left_ratio)
                     right_eye.set_ratio(right_ratio)
 
-                    if left_eye.is_blink_detected() and right_eye.is_blink_detected():
+                    if left_eye.is_blink_detected(long_blink=True) and right_eye.is_blink_detected(long_blink=True):
                         r.is_terminated = True
                         #print("#DEBUG: Both eyes closed")
                     elif left_eye.is_blink_detected():
@@ -754,16 +754,14 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         print('Customization values have been saved. You can continue with practice.')
 
-def on_closing():
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        win.destroy()
+
 
 # MAIN
 if __name__ == "__main__":
     # initialize tkinter window
     win = tk_utils.win_init("BoMi Settings")
 
-    win.protocol("WM_DELETE_WINDOW", on_closing)
+    
 
     obj = BoMIReaching(win=win, n_map_components=2)
 

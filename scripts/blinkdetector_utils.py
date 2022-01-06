@@ -85,16 +85,19 @@ def blink_ratio(img, facelandmarks):
     return reRatio, leRatio
 
 class Eye:
-    def __init__(self):
+    def __init__(self, blink_time=1000.0, long_blink_time=1000.0):
         self._BLINK_TH = 5.0 # empiric value
-        self._BLINK_TIME_TH = 1000.0 # msec
+        self._BLINK_TIME_TH = blink_time # msec
+        self._LONG_BLINK_TIME_TH = long_blink_time # msec
+
 
         self._ratio = 0
         self._timer = StopWatch()
         self._is_shut = False
     
-    def is_blink_detected(self):
-        return self._is_shut and self._timer.elapsed_time > self._BLINK_TIME_TH
+    def is_blink_detected(self, long_blink=False):
+        bk_time = long_blink and self._LONG_BLINK_TIME_TH or self._BLINK_TIME_TH
+        return self._is_shut and self._timer.elapsed_time > bk_time
 
     def set_ratio(self, ratio):
         self._ratio = ratio
