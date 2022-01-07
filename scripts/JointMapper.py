@@ -50,12 +50,6 @@ class SharedDetImage:
         self.result_face = None
         self.lock = Lock()
 
-
-class BodyWrap:
-    def __init__(self):
-        self.body = None
-
-
 class JointMapper(tk.Frame):
     """
     class that defines the main tkinter window --> graphic with buttons etc..
@@ -67,7 +61,6 @@ class JointMapper(tk.Frame):
 
         self.current_image_data = SharedDetImage()
         # from single instance to queue
-        #self.body_wrap = BodyWrap()
         self.body = queue.Queue()
 
         tk.Frame.__init__(self, win, *args, **kwargs)
@@ -341,10 +334,8 @@ class JointMapper(tk.Frame):
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
 
-        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        # class member accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
-
         self.body = queue.Queue()
         #body_calib = []  # initialize local variable (list of body landmarks during calibration)
 
@@ -433,12 +424,6 @@ class JointMapper(tk.Frame):
             if cv2.waitKey(1) == 27:
                 break  # esc to quit
 
-            #if timer_calib.elapsed_time > calib_duration:
-            #    r.is_terminated = True
-
-            # get current value of body
-            #body_calib.append(np.copy(self.body_wrap.body))
-
             # update time elapsed label
             time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
             lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
@@ -476,7 +461,6 @@ class CustomizationApplication(tk.Frame):
     def __init__(self, mainTk):
         self.mainTk = mainTk
         self.current_image_data = SharedDetImage()
-        #self.body_wrap = BodyWrap()
         self.body = queue.Queue()
 
     def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):

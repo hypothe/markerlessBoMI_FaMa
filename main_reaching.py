@@ -152,8 +152,7 @@ class BoMIReaching(JointMapper):
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
 
-        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        # gclass member accessed by main and mediapipe threads that contains the current vector of body landmarks
         self.body = queue.Queue(maxsize=1) # size=1 since we're interested only in the most recent value
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
@@ -225,7 +224,7 @@ class BoMIReaching(JointMapper):
                     mesh_coords = bd_utils.face_landmarks_detection(frame, results_face.face_landmarks, False)
                     right_ratio, left_ratio = bd_utils.blink_ratio(frame, mesh_coords)
 
-                    print("#DEBUG: blink ratio L{} R{}".format(left_ratio, right_ratio))
+                    #print("#DEBUG: blink ratio L{} R{}".format(left_ratio, right_ratio))
                     
                     frame.flags.writeable = True
 
@@ -337,8 +336,7 @@ class BoMIReaching(JointMapper):
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
 
-        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        # object member accessed by main and mediapipe threads that contains the current vector of body landmarks
         self.body = queue.Queue(maxsize=1)
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
@@ -383,7 +381,6 @@ class BoMIReaching(JointMapper):
 
                 # get current value of body
                 try:
-                    #r.body = np.copy(self.body_wrap.body)
                     r.body = self.body.get_nowait()
                 except queue.Empty:
                     pass
@@ -601,9 +598,8 @@ class CustomizationApplicationReaching(CustomizationApplication):
         # initialize lock for avoiding race conditions in threads
         lock = Lock()
 
-        # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
+        # class member accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
         self.body = queue.Queue(maxsize=1)
 
 
@@ -646,7 +642,6 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
                 # get current value of body
                 try:
-                    #r.body = np.copy(self.body_wrap.body)
                     r.body = self.body.get_nowait()
                 except queue.Empty:
                     pass

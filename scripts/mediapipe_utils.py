@@ -48,14 +48,12 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 
 		if not r.is_paused:
 			start_time = time.time()
-			# try:
 			# get current frame from thread 
 			try:
 				# wait as the queue might be empty just due to fast
 				# consumption, not for the end of the stream
 				curr_frame = q_frame.get(block=True, timeout=1.0)
-				#if curr_frame is None:
-				#	raise queue.Empty
+
 			except queue.Empty:
 				keep_reading_queue = False # exit if the queue is empty (and has been so for >1 sec)
 			else:
@@ -122,8 +120,6 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 					except AttributeError:
 						continue
 
-				#with lock:
-				#	body_wrap.body = np.array(body_list) # np.copy(body_mp)
 				try:
 					q_body.put(np.array(body_list), block=False)
 				except queue.Full:
