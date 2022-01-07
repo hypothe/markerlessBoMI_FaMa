@@ -1,6 +1,6 @@
 # Abstract
 
-
+> NOTE: see the end of this file for info on the docker image
 
 # UBUNTU installation steps:
 
@@ -217,3 +217,32 @@ The reaching task is composed of many steps (almost 300, you will take ~45 minut
 
 ![BoMI_8](https://user-images.githubusercontent.com/75327840/142374722-5f860b01-58fd-4293-882d-bfee32afd507.png)
 Figure 8. Start the reaching task.
+
+# The Docker Image
+
+A docker image is hosted at [hypothe/bomi_fama](https://hub.docker.com/repository/docker/hypothe/bomi_fama), which includes a complete environment with all the dependencies needed to run the contents of this repository.
+To launch the image execute one of the two scripts presented at the end of the dir `docker_run_scripts`, choosing `run_bomi.sh` on Unix systems and `run_bomi_wsl.sh` on WSL2 (to be run inside the WSL distribution, requires WSLG or an external xServer) running systems.
+
+> If your docker environment complain for GPU-related prameters of the docker run remove the *--gups all* and *--env NVIDIA_DRIVER_CAPABILITIES='graphics,compute,utility'* options from the command. Right now the instance of MediaPipe used does not leverage GPU acceleration in the forward pass, nor does the AutoEncoder in the training, so removing those options should not cause issues. But be aware that things might change, althought that will probably end up in its own branch.
+
+Said image pulls from the `blink-refactor` branch of this repository (*this will change as soon as that content will be moved into the `main` stable branch), and includes the possibility to use an external video source instead of a camera device.
+This, while not directly useful, allows to have repeatable tests with the same source (and eases the development process, not requiring the developers to move their head around for ~30 seconds each time they need to test the system).
+To use an external video file record it with whichever program of your choice (eg. `ffmpeg` on Unix, `Camera` app on Windows) and then move it inside the container with the following command:
+
+```bash
+docker cp <video_name> <container_name>:/root/videos/
+```
+*be careful: the trailing slash is important, or you would end up copying the file to the `root` folder of the container, renaming it as `videos`!*
+
+Next, once you launch the program and the GUI appears, click on the "Ext. Video Source" button: you will be presented with a simple file system research, use it to search for the video you just copied to the container. Click okay and that's it! Or, if you prefere, directly write the absolute path of the file in the text bar to the right of the button. You will have the confirmation everything went through when, clicking on the "Calibration" button, a window will open and show your external source, instead of the camera feed.
+If, instead, you want to go back to using the camera, click on the red button "Camera Video Source" to the right of the text bar, which will deselect any external source file and instead instruct the program to use the camera 0.
+
+> NOTE: the camera will also be selected if you press "Cancel" at any point during the search for an external video source.
+
+> NOTE: In case you had more than one camera and would like to select a different one (the N-th one) from the default `/dev/video0` write `/dev/video*N*` in the text bar, aka directly specify the name of the device.
+
+## A note on Windows users:
+
+Right now, in the docker environment, using the external video source instead of the camera is the **easiest** solution, as WSL2 does not, to this day, *directly* support sharing devices between the Windows OS and WSL itself, which in turn means those cannot be accessed by the container. While there are some un-official solutions, these are generally cumbersome, or not fully supported (eg. if interested give a look at [wsl-usbip](https://devblogs.microsoft.com/commandline/connecting-usb-devices-to-wsl/) an almost-official on-going project, which I tried with small degrees of success but might become useful in the near future). So, try to stick to this workaround if you can, while testing/exapnding the system.
+
+> NOTE on the docker naming: Right now the `latest` and the `blink-refactor` tags point to the same image, but there is no guarantee for this to remain the case in the future. Always refere to the `latest` tag unless instructed otherwise.

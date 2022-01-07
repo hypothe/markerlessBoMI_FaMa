@@ -5,6 +5,7 @@ opencv-python
 pygame
 scipy
 pyautogui
-mediapipe
+mediapipe>=0.8.9.1
 tensorflow
 sklearn
+tk

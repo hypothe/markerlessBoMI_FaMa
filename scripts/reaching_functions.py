@@ -92,8 +92,17 @@ def update_cursor_position_custom(body, map, rot, scale, off):
 
     return cu[0], cu[1]
 
+def rotate_xy_RH(xy, rot):
+    tmp_x, tmp_y = xy[0], xy[1]
+    xy[0] = tmp_x * np.cos(np.pi / 180 * rot) - tmp_y * np.sin(np.pi / 180 * rot)
+    xy[1] = tmp_x * np.sin(np.pi / 180 * rot) + tmp_y * np.cos(np.pi / 180 * rot)
+    return xy
 
-def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom):
+def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
+    # edit: screen space is left-handed! remember that in rotation!
+    return rotate_xy_RH(xy, -rot)
+
+def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height):
 
     if type(map) != tuple:
         cu = np.dot(body, map)
@@ -103,16 +112,23 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
         cu = np.dot(h, map[0][2]) + map[1][2]
 
     # Applying rotation, scale and offset computed after AE training
-    cu[0] = cu[0] * np.cos(np.pi / 180 * rot_ae) - cu[1] * np.sin(np.pi / 180 * rot_ae)
-    cu[1] = cu[0] * np.sin(np.pi / 180 * rot_ae) + cu[1] * np.cos(np.pi / 180 * rot_ae)
+    cu = rotate_xy_RH(cu, rot_ae)
     cu = cu * scale_ae
     cu = cu + off_ae
-
+    
     # Applying rotation, scale and offset computed after customization
-    cu[0] = cu[0] * np.cos(np.pi / 180 * rot_custom) - cu[1] * np.sin(np.pi / 180 * rot_custom)
-    cu[1] = cu[0] * np.sin(np.pi / 180 * rot_custom) + cu[1] * np.cos(np.pi / 180 * rot_custom)
+    # normalize the position wrt the screen space
+    cu[0] -= win_width/2.0
+    cu[1] -= win_height/2.0
+    # edit: screen space is left-handed! remember that in rotation!
+    cu = rotate_xy_LH(cu, rot_custom)
+
     cu = cu * scale_custom
+    
     cu = cu + off_custom
+    cu[0] += win_width/2.0
+    cu[1] += win_height/2.0
+
 
     return cu[0], cu[1]
 

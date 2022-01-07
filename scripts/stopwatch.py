@@ -7,6 +7,7 @@ class StopWatch:
         self._elapsed_time = 0
         self._pause_time = 0
         self._elapsed_pause = 0
+        self.isPaused = False
 
     def start(self):
         self._start_time = time.perf_counter_ns() * 10**-6
@@ -29,7 +30,13 @@ class StopWatch:
         return self._elapsed_pause
 
     def pause(self):
+        if self.isPaused == True:
+            return
         self._pause_time = time.perf_counter_ns() * 10 ** -6
+        self.isPaused = True
 
     def restart(self):
+        if self.isPaused == False:
+            return
         self._elapsed_pause += (time.perf_counter_ns() * 10 ** -6 - self._pause_time)
+        self.isPaused = False
