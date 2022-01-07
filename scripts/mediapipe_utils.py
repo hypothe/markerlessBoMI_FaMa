@@ -64,67 +64,69 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 
 				body_list = []
 				debug_frame_analyzed+=1
+
+				result = None
 				with image_data.lock:
 					# Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
-					image_data.image_id += 1
+					image_data.image_id += debug_frame_analyzed
 					image_data.image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
 					# To improve performance, optionally mark the image as not writeable to pass by reference.
 					image_data.image.flags.writeable = False
-					image_data.result = holistic.process(image_data.image)
+					image_data.result = result = holistic.process(image_data.image)
 
 					# NOTE: this should not be needed as the holistic model already provides face landmarks' detection
 					if mp_face_mesh is not None:
 						image_data.result.face_landmarks = mp_face_mesh.process(image_data.image).multi_face_landmarks[0]
 
-				if not image_data.result.pose_landmarks:
+				if not result.pose_landmarks:
 					continue
 				if joints[0, 0] == 1:
 					try:
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
 					except AttributeError:
-						# silent fail is landmark was not in view
-						pass
+						# silent fail is landmark was not in view, ignore even good landmarks in this pass
+						continue
 				if joints[1, 0] == 1:
 					try:
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
 					except AttributeError:
-						pass
+						continue
 				if joints[2, 0] == 1:
 					try:
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
-						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
+						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
 					except AttributeError:
-						pass
+						continue
 				if joints[3, 0] == 1 or joints[4, 0] == 1:
 					try:
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
 					except AttributeError:
-						pass
+						continue
 				if joints[4, 0] == 1:
 					try:
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
-						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
+						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
 					except AttributeError:
-						pass
+						continue
 
-				body_mp = np.array(body_list)
+				#body_mp = np.array(body_list)
 				#q_frame.queue.clear()
 
 				with lock:
-					body_wrap.body = np.copy(body_mp)
+					body_wrap.body = np.array(body_list) # np.copy(body_mp)
 
 				# consume the source at the correct frequecy      
 				#end_time = time.time()
