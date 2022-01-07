@@ -3,12 +3,15 @@ import cv2
 from scripts.stopwatch import StopWatch
 
 # Eye indices for blink detection
-# Left eyes indices
+# Right eyes indices
 RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385,384, 398 ]
+
 RIGHT_EYEBROW = [336, 296, 334, 293, 300, 276, 283, 282, 295, 285]
 
-# right eyes indices
+# left eyes indices
+# DEBUG
 LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
+
 LEFT_EYEBROW = [70, 63, 105, 66, 107, 55, 65, 52, 53, 46]
 
 # Colors
@@ -27,10 +30,10 @@ def euclidean_distance(point_a, point_b):
     return distance
 
 
-def face_landmarks_detection(img, results, draw=False):
+def face_landmarks_detection(img, face_landmarks, draw=False):
     img_height, img_width = img.shape[:2]
     # list[(x,y), (x,y)....]
-    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in results.multi_face_landmarks[0].landmark]
+    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in face_landmarks.landmark]
     if draw :
         [cv2.circle(img, p, 2, cv2.utils.GREEN, -1) for p in mesh_coord]
 
@@ -62,6 +65,7 @@ def blink_ratio(img, facelandmarks):
     # draw lines on right eye
     cv2.line(img, rh_right, rh_left, WHITE, 2)
     cv2.line(img, rv_top, rv_bottom, WHITE, 2)
+
     # draw lines on left eye
     cv2.line(img, lh_right, lh_left, WHITE, 2)
     cv2.line(img, lv_top, lv_bottom, WHITE, 2)

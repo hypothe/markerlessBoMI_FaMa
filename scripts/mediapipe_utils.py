@@ -34,7 +34,11 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 	# and put something in the queue
 	# NOTE: this eats up the first element in said queue, not a drama here
 	# but neither so elegant it won't come bite us back later on.
-	_ = q_frame.get(block=True, timeout=10.0)
+	try:
+		_ = q_frame.get(block=True, timeout=10.0)
+	except queue.Empty:
+		print("WARN: no image retrieved from the device after 10 seconds. Is it connected?")
+		r.is_terminated = True
 
 
 	while keep_reading_queue and not r.is_terminated:
@@ -68,37 +72,53 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 					image_data.image.flags.writeable = False
 					image_data.result = holistic.process(image_data.image)
 
+					# NOTE: this should not be needed as the holistic model already provides face landmarks' detection
 					if mp_face_mesh is not None:
-						image_data.result_face = mp_face_mesh.process(image_data.image)
-						#print("result face {}".format(image_data.result_face.multi_face_landmarks))
+						image_data.result.face_landmarks = mp_face_mesh.process(image_data.image).multi_face_landmarks[0]
 
 				if not image_data.result.pose_landmarks:
 					continue
 				if joints[0, 0] == 1:
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
+					try:
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].x)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
+					except AttributeError:
+						# silent fail is landmark was not in view
+						pass
 				if joints[1, 0] == 1:
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
+					try:
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].y)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
+					except AttributeError:
+						pass
 				if joints[2, 0] == 1:
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
-					body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
+					try:
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].y)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
+						body_list.append(image_data.result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
+					except AttributeError:
+						pass
 				if joints[3, 0] == 1 or joints[4, 0] == 1:
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
+					try:
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
+					except AttributeError:
+						pass
 				if joints[4, 0] == 1:
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
-					body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
+					try:
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].y)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].x)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.MIDDLE_FINGER_TIP].y)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].x)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.RING_FINGER_TIP].y)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
+						body_list.append(image_data.result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
+					except AttributeError:
+						pass
 
 				body_mp = np.array(body_list)
 				#q_frame.queue.clear()
@@ -129,17 +149,3 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 
 	#print('#DEBUG: frame processed {} frame skipped {} total frames {}'.format(debug_frame_analyzed, debug_frame_skipped, debug_frame_analyzed + debug_frame_skipped))
 	print('Mediapipe_forwardpass thread terminated.')
-
-
-def landmarksDetection(img, results, draw=False):
-    # landmark detection function
-
-    img_height, img_width = img.shape[:2]
-    # list[(x,y), (x,y)....]
-    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in
-                  results.multi_face_landmarks[0].landmark]
-    if draw:
-        [cv2.circle(img, p, 2, GREEN, -1) for p in mesh_coord]
-
-    # returning the list of tuples for each landmarks
-    return mesh_coord

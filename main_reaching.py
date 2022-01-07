@@ -137,12 +137,6 @@ class BoMIReaching(JointMapper):
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
                                         smooth_landmarks=False)
 
-        # initialize Mediapipe FaceMesh
-        mp_face_mesh = mp.solutions.face_mesh
-        face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1,
-                                          refine_landmarks=True,
-                                          min_detection_confidence=0.5,
-                                          min_tracking_confidence=0.5)
         # Create eye-counters objects
         left_eye = bd_utils.Eye(200, 1000) #ms
         right_eye = bd_utils.Eye(200, 1000) #ms
@@ -169,18 +163,13 @@ class BoMIReaching(JointMapper):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), face_mesh))
+                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
 
         # Keyboard Thread
         if keyboard_bool:
             # initialize keyboard operations
-            #keyboard_thread = Thread(target=kb_utils.keyboard_interface,
-            #                        args=(self.parent))
-            #keyboard_thread.setName('Kb_thread')
-            #keyboard_thread.start()
-            #kb_app = kb_utils.keyboard_interface(self.parent)
             kb_app = KeyBoard_Top(self.master)
             print("Keyboard interface started in calibration.")
 
@@ -190,6 +179,9 @@ class BoMIReaching(JointMapper):
 
         pyautogui.FAILSAFE = False
         is_mouse_down = False
+
+        screen_width, screen_height = pyautogui.size()
+        window_width = math.ceil(screen_width / 2)
 
         # -------- Main Program Loop -----------
         while not r.is_terminated:
@@ -217,22 +209,21 @@ class BoMIReaching(JointMapper):
 
                 # if mouse checkbox was enabled do not draw the reaching GUI,
                 # only change coordinates of the computer cursor
-                #mouse.move(r.crs_x, r.crs_y, absolute=True, duration=self.interframe_delay)
                 pyautogui.moveTo(r.crs_x, r.crs_y)
 
                 with self.current_image_data.lock:
-                    results_face = copy.deepcopy(self.current_image_data.result_face)
+                    results_face = copy.deepcopy(self.current_image_data.result)
                     frame = copy.deepcopy(self.current_image_data.image)
 
-                if results_face and results_face.multi_face_landmarks:
+                if results_face and results_face.face_landmarks:
                     
-                    mesh_coords = mediapipe_utils.landmarksDetection(frame, results_face, False)
+                    mesh_coords = bd_utils.face_landmarks_detection(frame, results_face.face_landmarks, False)
                     right_ratio, left_ratio = bd_utils.blink_ratio(frame, mesh_coords)
+
+                    print("#DEBUG: blink ratio L{} R{}".format(left_ratio, right_ratio))
                     
                     frame.flags.writeable = True
-                    screen_width, screen_height = pyautogui.size()
 
-                    window_width = math.ceil(screen_width / 2)
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                     cv2.imshow(win_name, frame)
                     cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
