@@ -153,7 +153,8 @@ class BoMIReaching(JointMapper):
         lock = Lock()
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        self.body = queue.Queue(maxsize=1) # size=1 since we're interested only in the most recent value
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -163,7 +164,7 @@ class BoMIReaching(JointMapper):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
 
@@ -197,7 +198,11 @@ class BoMIReaching(JointMapper):
                 r.old_crs_y = r.crs_y
 
                 # get current value of body
-                r.body = np.copy(self.body_wrap.body)
+                try:
+                    # if the queue is empty just keep the previous value
+                    r.body = self.body.get_nowait()
+                except queue.Empty:
+                    pass
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
@@ -333,7 +338,8 @@ class BoMIReaching(JointMapper):
         lock = Lock()
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
-        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        self.body = queue.Queue(maxsize=1)
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -343,7 +349,7 @@ class BoMIReaching(JointMapper):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
+                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
         mediapipe_thread.start()
         print("mediapipe thread started in practice.")
 
@@ -376,7 +382,11 @@ class BoMIReaching(JointMapper):
                 r.old_crs_y = r.crs_y
 
                 # get current value of body
-                r.body = np.copy(self.body_wrap.body)
+                try:
+                    #r.body = np.copy(self.body_wrap.body)
+                    r.body = self.body.get_nowait()
+                except queue.Empty:
+                    pass
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
@@ -593,7 +603,9 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+        self.body = queue.Queue(maxsize=1)
+
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -603,7 +615,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
+                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
         mediapipe_thread.start()
         print("mediapipe thread started in customization.")
 
@@ -633,7 +645,11 @@ class CustomizationApplicationReaching(CustomizationApplication):
                 r.old_crs_y = r.crs_y
 
                 # get current value of body
-                r.body = np.copy(self.body_wrap.body)
+                try:
+                    #r.body = np.copy(self.body_wrap.body)
+                    r.body = self.body.get_nowait()
+                except queue.Empty:
+                    pass
 
                 # apply BoMI forward map to body vector to obtain cursor position
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off)

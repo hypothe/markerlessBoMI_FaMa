@@ -1,4 +1,5 @@
 # Python ≥3.5 is required
+import queue
 import sys
 assert sys.version_info >= (3, 5)
 #
@@ -1030,6 +1031,31 @@ def load_bomi_map(dr_mode, drPath):
 
     return map
 
+def save_bomi_map(q_body, drPath, r):
+
+    body_calib = []
+
+    keep_reading_q = True
+
+    try:
+        body_calib.append(q_body.get(block=True, timeout=10.0))
+    except queue.Empty:
+        print("WARN: no body data retrieved after 10 seconds. Is the detection working?")
+        return
+
+    while keep_reading_q:
+        try:
+            body_calib.append(q_body.get(block=True, timeout=1.0))
+        except queue.Empty:
+            # care only if the acquisition process ended
+            if r.is_terminated:
+                keep_reading_q = False
+
+    body_calib = np.array(body_calib)
+    if not os.path.exists(drPath):
+        os.makedirs(drPath)
+    np.savetxt(drPath + "Calib.txt", body_calib)
+
 def read_transform(drPath, spec):
     rot = pd.read_csv(drPath + 'rotation_'+spec+'.txt', sep=' ', header=None).values
     scale = pd.read_csv(drPath + 'scale_'+spec+'.txt', sep=' ', header=None).values
@@ -1037,3 +1063,4 @@ def read_transform(drPath, spec):
     off = pd.read_csv(drPath + 'offset_'+spec+'.txt', sep=' ', header=None).values
     off = np.reshape(off, (off.shape[0],))
     return rot, scale, off
+

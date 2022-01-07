@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 
-def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, fps=120, mp_face_mesh=None):
+def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, fps=120, mp_face_mesh=None):
 	"""
 	function that runs in the thread for estimating pose online
 	:param pose: object of Mediapipe class used to predict poses
@@ -68,7 +68,7 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 				result = None
 				with image_data.lock:
 					# Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
-					image_data.image_id += debug_frame_analyzed
+					image_data.image_id = debug_frame_analyzed
 					image_data.image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
 					# To improve performance, optionally mark the image as not writeable to pass by reference.
 					image_data.image.flags.writeable = False
@@ -122,14 +122,14 @@ def mediapipe_forwardpass(image_data, body_wrap, holistic, mp_holistic, lock, q_
 					except AttributeError:
 						continue
 
-				#body_mp = np.array(body_list)
-				#q_frame.queue.clear()
-
-				with lock:
-					body_wrap.body = np.array(body_list) # np.copy(body_mp)
-
-				# consume the source at the correct frequecy      
-				#end_time = time.time()
+				#with lock:
+				#	body_wrap.body = np.array(body_list) # np.copy(body_mp)
+				try:
+					q_body.put(np.array(body_list), block=False)
+				except queue.Full:
+					# silent failing in case of queue not being read
+					# (generally happens when exiting)
+					pass
 
 				# Skip the next n frames, in order to keep the same fps as the
 				# video source

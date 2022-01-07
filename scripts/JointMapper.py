@@ -32,7 +32,7 @@ import pyautogui
 # For Mediapipe
 import mediapipe as mp
 # For training pca/autoencoder
-from scripts.compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_vaf, load_bomi_map, train_ae, train_pca
+from scripts.compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_vaf, load_bomi_map, train_ae, train_pca, save_bomi_map
 
 # Custom packages
 import ctypes
@@ -66,7 +66,9 @@ class JointMapper(tk.Frame):
         self.video_camera_device = 0 # -> 0 for the camera
 
         self.current_image_data = SharedDetImage()
-        self.body_wrap = BodyWrap()
+        # from single instance to queue
+        #self.body_wrap = BodyWrap()
+        self.body = queue.Queue()
 
         tk.Frame.__init__(self, win, *args, **kwargs)
         self.parent = win
@@ -341,8 +343,10 @@ class JointMapper(tk.Frame):
 
         # global variable accessed by main and mediapipe threads that contains the current vector of body landmarks
         
-        self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
-        body_calib = []  # initialize local variable (list of body landmarks during calibration)
+        #self.body_wrap.body = np.zeros((num_joints,))  # initialize global variable
+
+        self.body = queue.Queue()
+        #body_calib = []  # initialize local variable (list of body landmarks during calibration)
 
         # start thread for OpenCV. current frame will be appended in a queue in a separate thread
         q_frame = queue.Queue()
@@ -352,8 +356,10 @@ class JointMapper(tk.Frame):
 
         # initialize thread for mediapipe operations
         mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body_wrap, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
+                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
         mediapipe_thread.start()
+
+        body_write_thread = Thread(target=save_bomi_map, args=(self.body, drPath, r))
         print("mediapipe thread started in calibration.")
 
         # start the timer for calibration
@@ -369,6 +375,7 @@ class JointMapper(tk.Frame):
         mp_drawing = mp.solutions.drawing_utils
         mp_drawing_styles = mp.solutions.drawing_styles
 
+        body_write_thread.start()
 
         while not r.is_terminated:
 
@@ -430,7 +437,7 @@ class JointMapper(tk.Frame):
             #    r.is_terminated = True
 
             # get current value of body
-            body_calib.append(np.copy(self.body_wrap.body))
+            #body_calib.append(np.copy(self.body_wrap.body))
 
             # update time elapsed label
             time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
@@ -442,6 +449,7 @@ class JointMapper(tk.Frame):
 
         opencv_thread.join()
         mediapipe_thread.join()
+        body_write_thread.join()
 
         cv2.destroyAllWindows()
         # Stop the game engine and release the capture
@@ -451,10 +459,10 @@ class JointMapper(tk.Frame):
         print("openCV object released in calibration.")
 
         # print calibration file
-        body_calib = np.array(body_calib)
-        if not os.path.exists(drPath):
-            os.makedirs(drPath)
-        np.savetxt(drPath + "Calib.txt", body_calib)
+        #body_calib = np.array(body_calib)
+        #if not os.path.exists(drPath):
+        #    os.makedirs(drPath)
+        #np.savetxt(drPath + "Calib.txt", body_calib)
 
         print('Calibration finished. You can now train BoMI forward map.')
     
@@ -468,7 +476,8 @@ class CustomizationApplication(tk.Frame):
     def __init__(self, mainTk):
         self.mainTk = mainTk
         self.current_image_data = SharedDetImage()
-        self.body_wrap = BodyWrap()
+        #self.body_wrap = BodyWrap()
+        self.body = queue.Queue()
 
     def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
         self.w = tk_utils.popupWindow(self.master, "This function is not implemented here.")
