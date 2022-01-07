@@ -225,7 +225,7 @@ To launch the image execute one of the two scripts presented at the end of the d
 
 > If your docker environment complain for GPU-related prameters of the docker run remove the *--gups all* and *--env NVIDIA_DRIVER_CAPABILITIES='graphics,compute,utility'* options from the command. Right now the instance of MediaPipe used does not leverage GPU acceleration in the forward pass, nor does the AutoEncoder in the training, so removing those options should not cause issues. But be aware that things might change, althought that will probably end up in its own branch.
 
-Said image pulls from the `blink-refactor` branch of this repository (*this will change as soon as that content will be moved into the `main` stable branch), and includes the possibility to use an external video source instead of a camera device.
+Said image pulls from the `mainr` branch of this repository, and includes the possibility to use an external video source instead of a camera device.
 This, while not directly useful, allows to have repeatable tests with the same source (and eases the development process, not requiring the developers to move their head around for ~30 seconds each time they need to test the system).
 To use an external video file record it with whichever program of your choice (eg. `ffmpeg` on Unix, `Camera` app on Windows) and then move it inside the container with the following command:
 
@@ -245,4 +245,4 @@ If, instead, you want to go back to using the camera, click on the red button "C
 
 Right now, in the docker environment, using the external video source instead of the camera is the **easiest** solution, as WSL2 does not, to this day, *directly* support sharing devices between the Windows OS and WSL itself, which in turn means those cannot be accessed by the container. While there are some un-official solutions, these are generally cumbersome, or not fully supported (eg. if interested give a look at [wsl-usbip](https://devblogs.microsoft.com/commandline/connecting-usb-devices-to-wsl/) an almost-official on-going project, which I tried with small degrees of success but might become useful in the near future). So, try to stick to this workaround if you can, while testing/exapnding the system.
 
-> NOTE on the docker naming: Right now the `latest` and the `blink-refactor` tags point to the same image, but there is no guarantee for this to remain the case in the future. Always refere to the `latest` tag unless instructed otherwise.
+> NOTE on the docker naming: Right now the `latest` and the `main` tags point to the same image, but there is no guarantee for this to remain the case in the future. Always refere to the `latest` tag unless instructed otherwise.
