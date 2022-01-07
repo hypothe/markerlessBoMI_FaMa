@@ -135,11 +135,11 @@ class BoMIReaching(JointMapper):
         # initialize MediaPipe Pose
         mp_holistic = mp.solutions.holistic
         holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                        smooth_landmarks=False)
+                                        smooth_landmarks=False, refine_face_landmarks=True)
 
         # Create eye-counters objects
-        left_eye = bd_utils.Eye(200, 1000) #ms
-        right_eye = bd_utils.Eye(200, 1000) #ms
+        left_eye = bd_utils.Eye(300, 1000) #ms
+        right_eye = bd_utils.Eye(300, 1000) #ms
 
         # load scaling values for covering entire monitor workspace
         rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")

@@ -90,7 +90,7 @@ def blink_ratio(img, facelandmarks):
 
 class Eye:
     def __init__(self, blink_time=1000.0, long_blink_time=1000.0):
-        self._BLINK_TH = 4.8 # empiric value
+        self._BLINK_TH = 5.0 # empiric value
         self._BLINK_TIME_TH = blink_time # msec
         self._LONG_BLINK_TIME_TH = long_blink_time # msec
 
