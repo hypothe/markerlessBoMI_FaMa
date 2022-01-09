@@ -1,22 +1,32 @@
 import socketio
 import time
 
-class JointUpdater(socketio.Client):
+class JointUpdaterNS(socketio.ClientNamespace):
     def __init__(self):
-        super.__init__(self)
+        socketio.ClientNamespace.__init__(self)
 
-        self.joints_values = []
+        self.joints_values = [0, 0, 0]
 
     #@sio.event
     def on_connect(self):
-        print('Connection estabished')
+        print('Connection established')
 
     #@sio.event
     def on_getJointsValues(self, msg):
 
         print("Got joints message {}".format(msg))
         for id, joint_val in enumerate(msg):
-            self.joints_values[id] = joint_val
+            try:
+                self.joints_values[id] = joint_val
+            except IndexError:
+                pass
+
+class JointUpdater(socketio.Client):
+    def __init__(self):
+        socketio.Client.__init__(self)
+
+        self.ns = JointUpdaterNS()
+        self.register_namespace(self.ns)
 
     def subscribeJVA(self):
         self.emit('subscribeToJointsValuesUpdates')
@@ -25,7 +35,7 @@ class JointUpdater(socketio.Client):
         self.emit('unsubscribeToJointsValuesUpdates')
 
     def sendJointsValues(self, jval=None):
-        jval = jval is None and self.joints_values or jval
+        jval = jval is None and self.ns.joints_values or jval
 
         msg = {"joints": jval}
         self.emit("jointsUpdate", msg)
@@ -42,4 +52,7 @@ if __name__ == "__main__":
     time.sleep(2)
 
     print("Sending")
-    sio.sendJointsValues([0,1,2])
+    sio.sendJointsValues()
+
+    time.sleep(5)
+    print("Stored values {}".format(sio.ns.joints_values))
