@@ -242,7 +242,7 @@ class JointMapper(tk.Frame):
 
     def calibration(self):
         # start calibration dance - collect webcam data
-        self.w = tk_utils.popupWindow(self.master, "You will now start calibration.")
+        self.w = tk_utils.popupWindow(self.master, "You will now start calibration. \n You have the possibility to control the virtual mouse. \n If you are interested, after the calibration, select the checkbox 'Mouse Control'.")
         self.master.wait_window(self.w.top)
         # This variable helps to check which joint to display
         self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
