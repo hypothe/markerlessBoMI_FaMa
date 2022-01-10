@@ -1,5 +1,6 @@
 import socketio
 import time
+from os import getenv
 
 class JointUpdaterNS(socketio.ClientNamespace):
     def __init__(self):
@@ -41,9 +42,14 @@ class JointUpdater(socketio.Client):
         self.emit("jointsUpdate", msg)
 
 if __name__ == "__main__":
+    # the following line is used to set the name of the server,
+    # which will be resolved by the DNS.
+    # Not setting the variable allows for a local testing
+
+    server_name = getenv("BOMI_SERVER_NAME", 'localhost') 
 
     sio = JointUpdater()
-    sio.connect('http://localhost:4242')
+    sio.connect('http://'+server_name+':4242')
 
     time.sleep(2)
 
