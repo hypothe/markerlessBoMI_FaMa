@@ -35,15 +35,16 @@ class BoMIReaching(JointMapper):
         # mouse control
         
         self.check_mouse = tk.BooleanVar()
-        self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable=self.check_mouse)
-        self.check_m1.config(font=("Arial", self.font_size))
+        self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable=self.check_mouse, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_m1.config(font=("Times", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
 
         # keyboard
 
-        self.check_kb = tk.BooleanVar()
-        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb)
-        self.check_kb1.config(font=("Arial", self.font_size))
+        self.check_kb1 = tk.BooleanVar()
+        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb1, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_kb1["state"]="disabled"
+        self.check_kb1.config(font=("Times", self.font_size))
         self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w')
 
         self.refresh_rate = 30 # frames per second at max
@@ -102,7 +103,8 @@ class BoMIReaching(JointMapper):
                                         self.dr_mode, self.video_camera_device)
                 else:
                     self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode,
-                                             self.video_camera_device, self.check_kb.get())
+                                             self.video_camera_device, self.check_kb1.get())  
+                    self.check_kb1["state"] = "normal"                     
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
@@ -473,55 +475,55 @@ class CustomizationApplicationReaching(CustomizationApplication):
         self.font_size = 18
 
         self.lbl_rot = Label(parent, text='Rotation ')
-        self.lbl_rot.config(font=("Arial", self.font_size))
+        self.lbl_rot.config(font=("Times", self.font_size))
         self.lbl_rot.grid(column=0, row=0, padx=(300, 0), pady=(40, 20), sticky='w')
         self.txt_rot = Text(parent, width=10, height=1)
-        self.txt_rot.config(font=("Arial", self.font_size))
+        self.txt_rot.config(font=("Times", self.font_size))
         self.txt_rot.grid(column=1, row=0, pady=(40, 20))
         self.txt_rot.insert("1.0", '0')
 
         self.lbl_gx = Label(parent, text='Gain x ')
-        self.lbl_gx.config(font=("Arial", self.font_size))
+        self.lbl_gx.config(font=("Times", self.font_size))
         self.lbl_gx.grid(column=0, row=1, padx=(300, 0), pady=(40, 20), sticky='w')
         self.txt_gx = Text(parent, width=10, height=1)
-        self.txt_gx.config(font=("Arial", self.font_size))
+        self.txt_gx.config(font=("Times", self.font_size))
         self.txt_gx.grid(column=1, row=1, pady=(40, 20))
         self.txt_gx.insert("1.0", '1')
 
         self.lbl_gy = Label(parent, text='Gain y ')
-        self.lbl_gy.config(font=("Arial", self.font_size))
+        self.lbl_gy.config(font=("Times", self.font_size))
         self.lbl_gy.grid(column=0, row=2, padx=(300, 0), pady=(40, 20), sticky='w')
         self.txt_gy = Text(parent, width=10, height=1)
-        self.txt_gy.config(font=("Arial", self.font_size))
+        self.txt_gy.config(font=("Times", self.font_size))
         self.txt_gy.grid(column=1, row=2, pady=(40, 20))
         self.txt_gy.insert("1.0", '1')
 
         self.lbl_ox = Label(parent, text='Offset x ')
-        self.lbl_ox.config(font=("Arial", self.font_size))
+        self.lbl_ox.config(font=("Times", self.font_size))
         self.lbl_ox.grid(column=0, row=3, padx=(300, 0), pady=(40, 20), sticky='w')
         self.txt_ox = Text(parent, width=10, height=1)
-        self.txt_ox.config(font=("Arial", self.font_size))
+        self.txt_ox.config(font=("Times", self.font_size))
         self.txt_ox.grid(column=1, row=3, pady=(40, 20))
         self.txt_ox.insert("1.0", '0')
 
         self.lbl_oy = Label(parent, text='Offset y ')
-        self.lbl_oy.config(font=("Arial", self.font_size))
+        self.lbl_oy.config(font=("Times", self.font_size))
         self.lbl_oy.grid(column=0, row=4, padx=(300, 0), pady=(40, 20), sticky='w')
         self.txt_oy = Text(parent, width=10, height=1)
-        self.txt_oy.config(font=("Arial", self.font_size))
+        self.txt_oy.config(font=("Times", self.font_size))
         self.txt_oy.grid(column=1, row=4, pady=(40, 20))
         self.txt_oy.insert("1.0", '0')
 
         self.btn_save = Button(parent, text="Save parameters", command=self.save_parameters)
-        self.btn_save.config(font=("Arial", self.font_size))
+        self.btn_save.config(font=("Times", self.font_size))
         self.btn_save.grid(column=2, row=1, sticky='nesw', padx=(80, 0), pady=(40, 20))
 
         self.btn_start = Button(parent, text="Start", command=self.customization)
-        self.btn_start.config(font=("Arial", self.font_size))
+        self.btn_start.config(font=("Times", self.font_size))
         self.btn_start.grid(column=2, row=2, sticky='nesw', padx=(80, 0), pady=(40, 20))
 
         self.btn_close = Button(parent, text="Close", command=parent.destroy, bg='red')
-        self.btn_close.config(font=("Arial", self.font_size))
+        self.btn_close.config(font=("Times", self.font_size))
         self.btn_close.grid(column=2, row=3, sticky='nesw', padx=(80, 0), pady=(40, 20))
 
         cap = cv_utils.VideoCaptureOpt(video_camera_device)
