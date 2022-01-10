@@ -35,14 +35,14 @@ class BoMIReaching(JointMapper):
         # mouse control
         
         self.check_mouse = tk.BooleanVar()
-        self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable=self.check_mouse, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_m1 = tk.Checkbutton(win, text="Mouse Control", variable= self.check_mouse, command=self.mouse_check, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.check_m1.config(font=("Times", self.font_size))
         self.check_m1.grid(row=6, column=1, pady=(20, 30), sticky='w')
 
         # keyboard
 
-        self.check_kb1 = tk.BooleanVar()
-        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb1, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_kb = tk.BooleanVar()
+        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.check_kb1["state"]="disabled"
         self.check_kb1.config(font=("Times", self.font_size))
         self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w')
@@ -50,7 +50,13 @@ class BoMIReaching(JointMapper):
         self.refresh_rate = 30 # frames per second at max
         self.interframe_delay = 1/self.refresh_rate 
 
+    def mouse_check(self):
+        mouse_enabled = self.check_mouse.get()
+        if mouse_enabled:
+            self.check_kb1["state"]= "normal"
 
+        print('Keyboard available.')
+    
     def map_to_workspace(self, drPath, train_cu):
         r = Reaching()
 
@@ -103,8 +109,7 @@ class BoMIReaching(JointMapper):
                                         self.dr_mode, self.video_camera_device)
                 else:
                     self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode,
-                                             self.video_camera_device, self.check_kb1.get())  
-                    self.check_kb1["state"] = "normal"                     
+                                             self.video_camera_device, self.check_kb.get())                       
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
