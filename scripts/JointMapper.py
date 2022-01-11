@@ -32,7 +32,7 @@ import pyautogui
 # For Mediapipe
 import mediapipe as mp
 # For training pca/autoencoder
-from scripts.compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_vaf, load_bomi_map, train_ae, train_pca, save_bomi_map
+from scripts.compute_bomi_map import Autoencoder, PrincipalComponentAnalysis, compute_vaf, load_bomi_map, train_ae, train_vae, train_pca, save_bomi_map
 
 # Custom packages
 import ctypes
@@ -137,7 +137,7 @@ class JointMapper(tk.Frame):
         self.check_ae1.grid(row=2, column=3, padx=(0, 20), pady=(20, 30), sticky='w')
 
         # self.check_vae = BooleanVar()
-        self.check_vae1 = Radiobutton(win, text="Variational AE", variable=self.check_alg, value=2, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_vae1 = Radiobutton(win, text="VAE", variable=self.check_alg, value=2, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.check_vae1.config(font=("Times", self.font_size))
         self.check_vae1.grid(row=2, column=4, pady=(20, 30), sticky='w')
 
@@ -269,9 +269,9 @@ class JointMapper(tk.Frame):
                     self.dr_mode = 'ae'
 
                 elif self.check_alg.get() == 2:
-                    self.drPath = self.calibPath + 'AE/'
-                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
-                    self.dr_mode = 'ae'
+                    self.drPath = self.calibPath + 'VAE/'
+                    train_cu = train_vae(self.calibPath, self.drPath, self.n_map_component)
+                    self.dr_mode = 'vae'
 
                 # rotate, scale and offset the original features
                 # implementation-dependant (depends on the workspace of

@@ -300,8 +300,6 @@ class BoMIReaching(JointMapper):
 
         ############################################################
 
-
-
         # Create object of openCV, Reaching class and filter_butter3
         cap = cv_utils.VideoCaptureOpt(video_device)
 
@@ -763,16 +761,18 @@ class CustomizationApplicationReaching(CustomizationApplication):
 
         print('Customization values have been saved. You can continue with practice.')
 
-
-
 # MAIN
 if __name__ == "__main__":
     # initialize tkinter window
     win = tk_utils.win_init("BoMi Settings")
 
-    
-
     obj = BoMIReaching(win=win, n_map_components=2)
+
+    def on_closing():
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            win.destroy()
+
+    win.protocol("WM_DELETE_WINDOW", on_closing)
 
     # initiate Tkinter mainloop
     win.mainloop()

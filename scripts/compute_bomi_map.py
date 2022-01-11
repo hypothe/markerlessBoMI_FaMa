@@ -116,9 +116,7 @@ class Sampling(keras.layers.Layer):
     """
     Class to random a sample from gaussian distribution with given mean and std. Needed for reparametrization trick
     """
-    # reparameterization trick
-    # instead of sampling from Q(z|X), sample epsilon = N(0,I). random_normal has default mean 0 and std 1
-    # z = z_mean + sqrt(var) * epsilon
+
     def call(self, inputs):
         """Reparameterization trick by sampling from an isotropic unit Gaussian.
            # Arguments
@@ -127,7 +125,10 @@ class Sampling(keras.layers.Layer):
                z (tensor): sampled latent vector
            """
         mean, log_var = inputs
-        return K.random_normal(tf.shape(log_var)) * K.exp(log_var / 2) + mean
+        batch = tf.shape(mean)[0]
+        dim = tf.shape(mean)[1]
+        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
+        return mean + tf.exp(0.5 * log_var) * epsilon
 
 
 def temporalize(X, lookback):
@@ -392,7 +393,7 @@ class Autoencoder(object):
 
         # to make this notebook's output stable across runs
         np.random.seed(self._seed)
-        tf.random.set_seed(self._seed)
+        # tf.random.set_seed(self._seed)
 
         # factor for scaling KLD term
         if 'beta' in kwargs:
@@ -403,44 +404,46 @@ class Autoencoder(object):
         # object for callback function during training
         loss_callback = LossCallback()
 
-        # checkpoint_path = 'C:/Users/fabio/Desktop/test/model-{epoch:02d}.h5'
-        # cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-        #                                                  save_weights_only=True,
-        #                                                  verbose=0, save_freq=500)
-
         # the inference network (encoder) defines an approximate posterior distribution q(z/x), which takes as input an
         # observation and outputs a set of parameters for the conditional distribution of the latent representation.
         # Here, I simply model this distribution as a diagional Gaussian. Specifically, the interfence network outputs
         # the mean and log-variance parameters of a factorized Gaussian (log-variance instead of the variance directly
         # is for numerical stability)
+
         inputs = Input(shape=(len(x_train[0]),))
-        z = Dense(self._h1, activation=self._activation)(inputs)
-        z = Dense(self._h1, activation=self._activation)(z)
-        codings_mean = Dense(self._cu)(z)
-        codings_log_var = Dense(self._cu)(z)
+        hidden1 = Dense(self._h1, activation=self._activation)(inputs)
+        hidden1 = Dense(self._h1, activation=self._activation)(hidden1)
+
+        codings_mean = Dense(self._cu, name="encoder_mu")(hidden1)
+        codings_log_var = Dense(self._cu, name="encoder_log_variance")(hidden1)
         # During optimization, we can sample from q(z/x) by first sampling from a unit Gaussian, and then multiplying
         # by the standard deviation and adding the mean. This ensures the gradients could pass through the sample
         # to the interence network parameters. This is called reparametrization trick
         # codings = Sampling()([codings_mean, codings_log_var])
-        codings = Sampling()([codings_mean, codings_log_var])
+        z = Sampling()([codings_mean, codings_log_var])
 
-        variational_encoder = Model(inputs=[inputs], outputs=[codings_mean, codings_log_var, codings])
+        variational_encoder = keras.Model(inputs, [codings_mean, codings_log_var, z], name="encoder")
+        variational_encoder.summary()
 
         # the generative network (decoder)is just a mirrored version of the encoder.
         decoder_inputs = Input(shape=[self._cu])
         x = Dense(self._h1, activation=self._activation)(decoder_inputs)
         x = Dense(self._h1, activation=self._activation)(x)
         outputs = Dense(len(x_train[0]))(x)
+
         variational_decoder = Model(inputs=[decoder_inputs], outputs=[outputs])
+        variational_decoder.summary()
+
 
         _, _, codings = variational_encoder(inputs)
         reconstructions = variational_decoder(codings)
-        variational_ae = Model(inputs=[inputs], outputs=[reconstructions])
+
+        variational_ae = Model(inputs=inputs, outputs=reconstructions)
 
         variational_ae.compile(loss=custom_loss_vae(codings_log_var, codings_mean, beta),
                                optimizer=Adam(learning_rate=self._alpha),
                                metrics=[mse_loss, kld_loss(codings_log_var, codings_mean, beta)])
-        variational_ae.summary()
+
 
         # During training, 1. we start by iterating over the dataset
         # 2. during each iter, we pass the input data to the encoder to obtain a set of mean and log-variance
@@ -962,7 +965,6 @@ def train_ae(calibPath, drPath, n_map_component):
 
     # train AE network
     history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_network(train_x, x_test=test_x)
-    # history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_vae(train_x, beta=0.00035, x_test=test_x)
     print('AE has been trained.')
 
     # save weights and biases
@@ -1011,9 +1013,94 @@ def train_ae(calibPath, drPath, n_map_component):
     print('You can continue with customization.')
     return train_cu
 
+# Variational autoencoder
+def train_vae(calibPath, drPath, n_map_component):
+    """
+    function to train BoMI forward map
+    :param drPath: path to save BoMI forward map
+    :return:
+    """
+    r = Reaching()
+
+    # Autoencoder parameters
+    n_steps = 3001
+    lr = 0.02
+    cu = n_map_component
+    nh1 = 6
+    activ = "tanh"
+
+    # read calibration file and remove all the initial zero rows
+    xp = list(pd.read_csv(calibPath + 'Calib.txt', sep=' ', header=None).values)
+    x = [i for i in xp if all(i)]
+    x = np.array(x)
+
+    # randomly shuffle input
+    np.random.shuffle(x)
+
+    # define train/test split
+    thr = 80
+    split = int(len(x) * thr / 100)
+    train_x = x[0:split, :]
+    test_x = x[split:, :]
+
+    # initialize object of class Autoencoder
+    AE = Autoencoder(n_steps, lr, cu, activation=activ, nh1=nh1, seed=0)
+
+    # train VAE network
+    history, ws, bs, train_x_rec, train_cu, test_x_rec, test_cu = AE.train_vae(train_x, beta=0.00035, x_test=test_x)
+    print('VAE has been trained.')
+
+    # save weights and biases
+    if not os.path.exists(drPath):
+        os.makedirs(drPath)
+    for layer in range(3):
+        np.savetxt(drPath + "weights" + str(layer + 1) + ".txt", ws[layer])
+        np.savetxt(drPath + "biases" + str(layer + 1) + ".txt", bs[layer])
+
+    print('BoMI forward map (VAE parameters) has been saved.')
+
+    # compute train/test VAF
+    print(f'Training VAF: {compute_vaf(train_x, train_x_rec)}')
+    print(f'Test VAF: {compute_vaf(test_x, test_x_rec)}')
+
+    # normalize latent space to fit the monitor coordinates
+    # Applying rotation
+    plot_ae = False
+    if plot_ae:
+        rot = 0
+        train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
+        #if cu == 3:
+        #    train_cu[2] = np.tanh(train_cu[2])
+        # Applying scale
+        scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
+        train_cu = train_cu * scale
+        # Applying offset
+        off = [r.width / 2 - np.mean(train_cu[:, 0]), r.height / 2 - np.mean(train_cu[:, 1])]
+        train_cu = train_cu + off
+
+        # Plot latent space
+        plt.figure()
+        plt.scatter(train_cu[:, 0], train_cu[:, 1], c='green', s=20)
+        plt.title('Projections in workspace')
+        plt.axis("equal")
+        plt.show()
+
+        # save AE scaling values
+        with open(drPath + "rotation_dr.txt", 'w') as f:
+            print(rot, file=f)
+        np.savetxt(drPath + "scale_dr.txt", scale)
+        np.savetxt(drPath + "offset_dr.txt", off)
+
+        print('VAE scaling values has been saved.')
+
+    print('You can continue with customization.')
+    return train_cu
+
 def load_bomi_map(dr_mode, drPath):
+
     if dr_mode == 'pca':
         map = pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values
+
     elif dr_mode == 'ae':
         ws = []
         bs = []
@@ -1026,6 +1113,11 @@ def load_bomi_map(dr_mode, drPath):
         bs[1] = bs[1].reshape((bs[1].size,))
         bs.append(pd.read_csv(drPath + 'biases3.txt', sep=' ', header=None).values)
         bs[2] = bs[2].reshape((bs[2].size,))
+
+    elif dr_mode == 'vae':
+
+        ws = []
+        bs = []
 
         map = (ws, bs)
 
