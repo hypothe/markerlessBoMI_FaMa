@@ -587,13 +587,10 @@ class CustomizationApplicationReaching(CustomizationApplication):
                                         smooth_landmarks=False)
 
         # load scaling values saved after training AE for covering entire monitor workspace
-        rot = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-        scale = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-        scale = np.reshape(scale, (scale.shape[0],))
-        off = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-        off = np.reshape(off, (off.shape[0],))
+		
+        # load scaling values for covering entire monitor workspace
+        rot, scale, off = compute_bomi_map.read_transform(drPath, "dr")
 
-        print("SCALE: {}".format(scale))
 
         # initialize lock for avoiding race conditions in threads
         lock = Lock()

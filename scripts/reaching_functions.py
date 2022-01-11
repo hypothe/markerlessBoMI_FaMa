@@ -81,8 +81,7 @@ def update_cursor_position_custom(body, map, rot, scale, off):
         cu = np.dot(h, map[0][2]) + map[1][2]
 
     # Applying rotation
-    cu[0] = cu[0] * np.cos(np.pi / 180 * rot) - cu[1] * np.sin(np.pi / 180 * rot)
-    cu[1] = cu[0] * np.sin(np.pi / 180 * rot) + cu[1] * np.cos(np.pi / 180 * rot)
+    cu = rotate_xy_RH(cu, rot)
 
     # Applying scale
     cu = cu * scale
@@ -91,6 +90,10 @@ def update_cursor_position_custom(body, map, rot, scale, off):
     cu = cu + off
 
     return cu[0], cu[1]
+
+def get_mapped_values(body, map, rot, scale, off):
+    # TODO
+    pass
 
 def rotate_xy_RH(xy, rot):
     tmp_x, tmp_y = xy[0], xy[1]
