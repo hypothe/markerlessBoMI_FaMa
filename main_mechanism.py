@@ -51,10 +51,11 @@ class BoMIMechanism(JointMapper):
 		if not os.path.exists(drPath):
 			os.makedirs(drPath)
 
-	# [-pi, pi]
+		# (x - mi)/(ma - mi)
+		# [-pi, pi]
 		for i in range(np.size(train_cu, axis=1)):
 			scale.append(2.0*math.pi/np.ptp(train_cu[:, i]))
-			off.append(0-np.mean(train_cu[:, i]))
+			off.append(-math.pi - 2.0*math.pi*np.min(train_cu[:, i])/np.ptp(train_cu[:, i]))
 
 		# save PCA scaling values
 		with open(drPath + "rotation_dr.txt", 'w') as f:
@@ -90,7 +91,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		for i in range(self.nmap_component):
 			self.lbl_g.append(Label(parent, text='Gain {} '.format(i)))
 			self.lbl_g[-1].config(font=("Arial", self.font_size))
-			self.lbl_g[-1].grid(column=i, row=0, padx=(300, 0), pady=(40, 20), sticky='w')
+			self.lbl_g[-1].grid(column=i, row=0, padx=(40, 20), pady=(40, 20), sticky='w')
 			self.txt_g.append(Text(parent, width=10, height=1))
 			self.txt_g[-1].config(font=("Arial", self.font_size))
 			self.txt_g[-1].grid(column=i, row=1, pady=(40, 20))
@@ -98,7 +99,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 
 			self.lbl_o.append(Label(parent, text='Offset {} '.format(i)))
 			self.lbl_o[-1].config(font=("Arial", self.font_size))
-			self.lbl_o[-1].grid(column=i, row=2, padx=(300, 0), pady=(40, 20), sticky='w')
+			self.lbl_o[-1].grid(column=i, row=2, padx=(40, 20), pady=(40, 20), sticky='w')
 			self.txt_o.append(Text(parent, width=10, height=1))
 			self.txt_o[-1].config(font=("Arial", self.font_size))
 			self.txt_o[-1].grid(column=i, row=3, pady=(40, 20))
@@ -131,17 +132,29 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		if messagebox.askokcancel("Quit", "Do you want to quit?"):
 			self.destroy()
 
-	def retrieve_txt_g(self, i):
-		return float(self.txt_g[i].get("1.0", "end-1c"))
+	def retrieve_txt_g(self):
+		g = []
+		for i in range(len(self.txt_g)):
+			try:
+				g.append(float(self.txt_g[i].get("1.0", "end-1c")))
+			except ValueError:
+				g.append(1)
+		return g
 
-	def retrieve_txt_o(self, i):
-		return float(self.txt_o[i].get("1.0", "end-1c"))
+	def retrieve_txt_o(self):
+		o = []
+		for i in range(len(self.txt_o)):
+			try:
+				o.append(float(self.txt_o[i].get("1.0", "end-1c")))
+			except ValueError:
+				o.append(0)
+		return o
 
 	def customization(self):
-		self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device, self.nmap_component)
+		self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
 
 	# ---- # Testing Interface # ---- #
-	def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device, nmap_component):
+	def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
 		"""
 		Allow the user to test out and customize the BoMI mapping.
 		:param self: CustomizationApplicationMechanism tkinter Frame. needed to retrieve textbox values programmatically
@@ -166,7 +179,6 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 
 
 		rot, scale, off = compute_bomi_map.read_transform(drPath, "dr")
-
 		
 		# initialize lock for avoiding race conditions in threads
 		lock = Lock()
@@ -196,6 +208,8 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		# Open a new window
 		size = (r.width, r.height)
 		screen = pygame.display.set_mode(size)
+		joints_display_displacement = None #[r.height]*self.nmap_component
+		slider_length = 300 # px
 
 		while not r.is_terminated:
 			for event in pygame.event.get():
@@ -212,6 +226,41 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			except queue.Empty:
 				pass
 
+			# remap the displacement on the slider
+			scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
+			off_custom   = [s + r.height/2.0 for s in self.retrieve_txt_o()]
+			joint_values = reaching_functions.get_mapped_values(r.body, map, \
+																													rot, scale, off, \
+																													0, scale_custom, off_custom,\
+																													joints_display_displacement)
+
+			# saturation
+			#joint_values = [s > ]
+
+			screen.fill(BLACK)
+			# draw vertical sliders
+			for i in range(self.nmap_component):
+				pygame.draw.line(screen, bd_utils.WHITE, (int(r.width * (i+1)/(self.nmap_component+1)), r.height/2-slider_length/2 ),\
+					(int(r.width * (i+1)/(self.nmap_component+1)), r.height/2+slider_length/2 ))
+				
+				pygame.draw.circle(screen, CURSOR, (int(r.width * (i+1)/(self.nmap_component+1)), \
+																						int(joint_values[i])), r.crs_radius)
+
+			pygame.display.flip()
+
+			clock.tick(self.refresh_rate)
+
+		opencv_thread.join()
+		mediapipe_thread.join()
+		# Once we have exited the main program loop, stop the game engine and release the capture
+		pygame.quit()
+		print("game engine object released in customization.")
+		holistic.close()
+		print("pose estimation object released terminated in customization.")
+		cap.release()
+		cv2.destroyAllWindows()
+		print("openCV object released in customization.")
+
 
 	# ---- # Param Saving # ---- #
 	def save_parameters(self):
@@ -227,8 +276,8 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		:return:
 		"""
 		# retrieve values stored in the textbox
-		scale = [self.retrieve_txt_g(i) for i in range(len(self.txt_g))]
-		off   = [self.retrieve_txt_o(i) for i in range(len(self.txt_o))]
+		scale = self.retrieve_txt_g()
+		off   = self.retrieve_txt_o()
 
 		# save customization values
 		with open(drPath + "rotation_custom.txt", 'w') as f:
@@ -247,7 +296,7 @@ if __name__ == "__main__":
 
 		
 
-		obj = BoMIMechanism(win=win, n_map_components=2)
+		obj = BoMIMechanism(win=win, n_map_components=3)
 
 		# initiate Tkinter mainloop
 		win.mainloop()
