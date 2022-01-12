@@ -72,28 +72,10 @@ def filter_cursor(r, filter_curs):
 
 
 def update_cursor_position_custom(body, map, rot, scale, off):
-
-    if type(map) != tuple:
-        cu = np.dot(body, map)
-    else:
-        h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
-        h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
-        cu = np.dot(h, map[0][2]) + map[1][2]
-
-    # Applying rotation
-    cu = rotate_xy_RH(cu, rot)
-
-    # Applying scale
-    cu = cu * scale
-
-    # Applying offset
-    cu = cu + off
-
-    return cu[0], cu[1]
-
-def get_mapped_values(body, map, rot, scale, off):
-    # TODO
-    pass
+    """
+    Wrapper for compatibility
+    """
+    return get_mapped_values(body, map, rot, scale, off)
 
 def rotate_xy_RH(xy, rot):
     tmp_x, tmp_y = xy[0], xy[1]
@@ -106,7 +88,14 @@ def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
     return rotate_xy_RH(xy, -rot)
 
 def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height):
+    """
+    Wrapper for compatibility
+    """
+    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, (win_width, win_height))
 
+
+def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p_range=None):
+    # TODO
     if type(map) != tuple:
         cu = np.dot(body, map)
     else:
@@ -114,27 +103,28 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
         h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
         cu = np.dot(h, map[0][2]) + map[1][2]
 
+    p_range = p_range is None and [0]*len(cu) or p_range
+
     # Applying rotation, scale and offset computed after AE training
-    cu = rotate_xy_RH(cu, rot_ae)
-    cu = cu * scale_ae
-    cu = cu + off_ae
+    cu = rotate_xy_RH(cu, rot1)
+    cu = cu * scale1
+    cu = cu + off1
     
     # Applying rotation, scale and offset computed after customization
     # normalize the position wrt the screen space
-    cu[0] -= win_width/2.0
-    cu[1] -= win_height/2.0
+    for i in range(len(cu)):
+        cu[i] -= p_range[i]/2.0
     # edit: screen space is left-handed! remember that in rotation!
-    cu = rotate_xy_LH(cu, rot_custom)
+    cu = rotate_xy_LH(cu, rot2)
 
-    cu = cu * scale_custom
+    cu = cu * scale2
     
-    cu = cu + off_custom
-    cu[0] += win_width/2.0
-    cu[1] += win_height/2.0
+    cu = cu + off2
 
+    for i in range(len(cu)):
+        cu[i] += p_range[i]/2.0
 
-    return cu[0], cu[1]
-
+    return cu
 
 def write_practice_files(r, body, timer_practice):
 
