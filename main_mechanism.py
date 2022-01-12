@@ -81,7 +81,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		self.font_size = 18
 		self.nmap_component = nmap_component
 
-		# TODO: ask for the number of joints, for now stuck with 3
+		# TODO: ask for the number of joints to send to Unity, for now stuck with 3
 
 		self.lbl_g = []
 		self.txt_g = []
@@ -149,6 +149,56 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			except ValueError:
 				o.append(0)
 		return o
+
+	def wrapper_control_loop(self, dr_mode, drPath, num_joints, joints, video_device, inner_control_loop):
+		# Create object of openCV, Reaching class and filter_butter3
+		cap = cv_utils.VideoCaptureOpt(video_device)
+
+		r = Reaching()
+		map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
+		
+		filter_curs = FilterButter3("lowpass_4", nc=self.nmap_component)
+		
+		# initialize MediaPipe Pose
+		mp_holistic = mp.solutions.holistic
+		holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
+																		smooth_landmarks=False)
+
+
+		rot, scale, off = compute_bomi_map.read_transform(drPath, "dr")
+		
+		# initialize lock for avoiding race conditions in threads
+		lock = Lock()
+
+		self.body = queue.Queue(maxsize=1)
+
+		# start thread for OpenCV. current frame will be appended in a queue in a separate thread
+		q_frame = queue.Queue()
+		opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
+		opencv_thread.start()
+		print("openCV thread started in customization.")
+
+		# initialize thread for mediapipe operations
+		mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
+														args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
+		mediapipe_thread.start()
+		print("mediapipe thread started in customization.")
+
+		# ---- #
+		inner_control_loop()
+		# ---- #
+
+		opencv_thread.join()
+		mediapipe_thread.join()
+		# Once we have exited the main program loop, stop the game engine and release the capture
+		pygame.quit()
+		print("game engine object released in customization.")
+		holistic.close()
+		print("pose estimation object released terminated in customization.")
+		cap.release()
+		cv2.destroyAllWindows()
+		print("openCV object released in customization.")
+
 
 	def customization(self):
 		self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
@@ -270,6 +320,22 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		cv2.destroyAllWindows()
 		print("openCV object released in customization.")
 
+	# ---- # Start # ---- #
+	def start(self):
+		# check whether customization parameters have been saved
+		if os.path.isfile(self.drPath + "offset_custom.txt"):
+			self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
+			self.master.wait_window(self.w.top)
+			if self.w.status:
+				self.start_mechanism_control(self.dr_mode, self.drPath, self.num_joints, self.joints,
+                                             self.video_camera_device)
+		else:
+			self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
+			self.master.wait_window(self.w.top)
+			self.btn_start["state"] = "disabled"
+
+	def start_mechanism_control(self, dr_mode, drPath, num_joints, joints, video_device):
+			pass
 
 	# ---- # Param Saving # ---- #
 	def save_parameters(self):
