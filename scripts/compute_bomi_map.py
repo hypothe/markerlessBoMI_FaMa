@@ -1126,6 +1126,8 @@ def load_bomi_map(dr_mode, drPath):
         bs.append(pd.read_csv(drPath + 'biases3.txt', sep=' ', header=None).values)
         bs[2] = bs[2].reshape((bs[2].size,))
 
+        map = (ws, bs)
+
     elif dr_mode == 'vae':
 
         ws = []
