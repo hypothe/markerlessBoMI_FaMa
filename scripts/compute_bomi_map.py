@@ -1133,7 +1133,7 @@ def load_bomi_map(dr_mode, drPath):
         ws = []
         bs = []
 
-        map = (ws, bs)
+        map = (ws, bs) 
 
     return map
 
