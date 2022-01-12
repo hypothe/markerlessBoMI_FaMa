@@ -295,7 +295,9 @@ class JointMapper(tk.Frame):
             self.newWindow.geometry("1000x500")
             self.newWindow.title("Customization")
             self.app.generate_window(self.newWindow, drPath=self.drPath, num_joints=self.num_joints,
-                                                joints=self.joints, dr_mode=self.dr_mode, video_camera_device=self.video_camera_device)
+                                                joints=self.joints, dr_mode=self.dr_mode,
+                                                video_camera_device=self.video_camera_device,
+                                                nmap_component=self.n_map_component)
         else:
             self.w = tk_utils.popupWindow(self.master, "Compute BoMI map first.")
             self.master.wait_window(self.w.top)
@@ -463,7 +465,7 @@ class CustomizationApplication(tk.Frame):
         self.current_image_data = SharedDetImage()
         self.body = queue.Queue()
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, nmap_component):
         self.w = tk_utils.popupWindow(self.master, "This function is not implemented here.")
 
 

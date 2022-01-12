@@ -462,7 +462,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
     def __init__(self, mainTk):
         CustomizationApplication.__init__(self, mainTk)
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, nmap_component):
         tk.Frame.__init__(self, parent)
         self.video_camera_device = video_camera_device
         self.parent = parent
