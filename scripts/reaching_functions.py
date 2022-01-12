@@ -129,7 +129,6 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
     cu[0] += win_width/2.0
     cu[1] += win_height/2.0
 
-
     return cu[0], cu[1]
 
 

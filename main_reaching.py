@@ -675,7 +675,6 @@ class CustomizationApplicationReaching(CustomizationApplication):
                     oy_custom = int(self.retrieve_txt_oy())
                 except:
                     oy_custom = 0
-
                 
                 # normalize before transformation
                 r.crs_x -= r.width/2.0
