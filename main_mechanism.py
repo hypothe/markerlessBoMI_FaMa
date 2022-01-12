@@ -172,6 +172,8 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		r = Reaching()
 		map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
 		
+		filter_curs = FilterButter3("lowpass_4", nc=self.nmap_component)
+		
 		# initialize MediaPipe Pose
 		mp_holistic = mp.solutions.holistic
 		holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
@@ -226,7 +228,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			except queue.Empty:
 				pass
 
-			# remap the displacement on the slider
+			# -- Mapping --
 			scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
 			off_custom   = [s + r.height/2.0 for s in self.retrieve_txt_o()]
 			joint_values = reaching_functions.get_mapped_values(r.body, map, \
@@ -234,11 +236,18 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 																													0, scale_custom, off_custom,\
 																													joints_display_displacement)
 
-			# saturation
-			#joint_values = [s > ]
+			# -- Saturation --
+			joint_values = [reaching_functions.saturate(j, r.height/2 - slider_length/2, r.height/2 + slider_length/2) for j in joint_values]
 
+			# -- Filtering --
+			for i in range(self.nmap_component):
+				filter_curs.update_cursor(joint_values[i], i)
+
+			joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
+
+			# -- Display --
 			screen.fill(BLACK)
-			# draw vertical sliders
+			
 			for i in range(self.nmap_component):
 				pygame.draw.line(screen, bd_utils.WHITE, (int(r.width * (i+1)/(self.nmap_component+1)), r.height/2-slider_length/2 ),\
 					(int(r.width * (i+1)/(self.nmap_component+1)), r.height/2+slider_length/2 ))

@@ -6,16 +6,16 @@ class FilterButter3:
         Class to perform online filter of the cursor
     """
 
-    def __init__(self, pass_type):
+    def __init__(self, pass_type, nc = 2):
         self._pass_type = pass_type
 
         # Array of input values, latest are in front
         # self._input_history = np.zeros([3, 8], 'float')
-        self._in_cursor_history = np.zeros([3, 2], 'float')
+        self._in_cursor_history = np.zeros([3, nc], 'float')
 
         # Array of output values, latest are in front
         # self._output_history = np.zeros([3, 8], 'float')
-        self._out_cursor_history = np.zeros([3, 2], 'float')
+        self._out_cursor_history = np.zeros([3, nc], 'float')
 
         # Coefficients for cursor (50 Hz) 4Hz - 3Hz - 2Hz - 1Hz
         if self._pass_type == "lowpass_4":

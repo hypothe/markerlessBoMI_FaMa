@@ -62,6 +62,10 @@ def set_target_reaching(r):
         r.tgt_x = r.width / 2
         r.tgt_y = r.height / 2  # Center of the screen
 
+def saturate(x, min_x, max_x):
+    return  x < min_x and min_x or \
+            x > max_x and max_x or \
+            x
 
 def filter_cursor(r, filter_curs):
 
