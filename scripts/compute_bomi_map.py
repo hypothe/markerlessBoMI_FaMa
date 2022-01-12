@@ -15,6 +15,9 @@ from tensorflow.keras import Model
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Add, Multiply
 from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import RepeatVector
 from tensorflow.keras.layers import TimeDistributed
@@ -25,6 +28,7 @@ from tensorflow.keras.layers import Flatten
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras import backend as K
+from tensorflow.keras.utils import plot_model
 
 # assert tf.__version__ >= "2.0"
 
@@ -410,66 +414,74 @@ class Autoencoder(object):
         # the mean and log-variance parameters of a factorized Gaussian (log-variance instead of the variance directly
         # is for numerical stability)
 
-        inputs = Input(shape=(len(x_train[0]),))
-        hidden1 = Dense(self._h1, activation=self._activation)(inputs)
-        hidden1 = Dense(self._h1, activation=self._activation)(hidden1)
+        # Decoder definition
+        decoder = Sequential([
+            Dense(self._h1, input_dim=self._cu, activation=self._activation),
+            Dense(len(x_train[0]), activation=self._activation)
+        ])
+        decoder.summary()
 
-        codings_mean = Dense(self._cu, name="encoder_mu")(hidden1)
-        codings_log_var = Dense(self._cu, name="encoder_log_variance")(hidden1)
+        # Encoder definition
+        x = Input(shape=(len(x_train[0]),))
+        h = Dense(self._h1, activation=self._activation)(x)
+
         # During optimization, we can sample from q(z/x) by first sampling from a unit Gaussian, and then multiplying
         # by the standard deviation and adding the mean. This ensures the gradients could pass through the sample
         # to the interence network parameters. This is called reparametrization trick
-        # codings = Sampling()([codings_mean, codings_log_var])
-        z = Sampling()([codings_mean, codings_log_var])
+        z_mu = Dense(self._cu)(h)
+        z_log_var = Dense(self._cu)(h)
 
-        variational_encoder = keras.Model(inputs, [codings_mean, codings_log_var, z], name="encoder")
-        variational_encoder.summary()
+        z_mu, z_log_var = KLDivergenceLayer()([z_mu, z_log_var])
+        z_sigma = Lambda(lambda t: K.exp(.5 * t))(z_log_var)
 
-        # the generative network (decoder)is just a mirrored version of the encoder.
-        decoder_inputs = Input(shape=[self._cu])
-        x = Dense(self._h1, activation=self._activation)(decoder_inputs)
-        x = Dense(self._h1, activation=self._activation)(x)
-        outputs = Dense(len(x_train[0]))(x)
+        epsilon_std = 1.0
+        eps = Input(tensor=K.random_normal(stddev=epsilon_std, shape=(K.shape(x)[0], self._cu)))
+        z_eps = Multiply()([z_sigma, eps])
+        z = Add()([z_mu, z_eps])
 
-        variational_decoder = Model(inputs=[decoder_inputs], outputs=[outputs])
-        variational_decoder.summary()
+        x_pred = decoder(z)
 
+        variational_ae = Model(inputs=[x, eps], outputs=x_pred)
 
-        _, _, codings = variational_encoder(inputs)
-        reconstructions = variational_decoder(codings)
-
-        variational_ae = Model(inputs=inputs, outputs=reconstructions)
-
-        variational_ae.compile(loss=custom_loss_vae(codings_log_var, codings_mean, beta),
-                               optimizer=Adam(learning_rate=self._alpha),
-                               metrics=[mse_loss, kld_loss(codings_log_var, codings_mean, beta)])
-
+        #variational_ae.compile(optimizer=Adam(learning_rate=self._alpha),
+         #                      loss=custom_loss_vae(z_sigma, z_mu, beta),
+          #                     metrics=[mse_loss, kld_loss(z_sigma, z_mu, beta)])
+        variational_ae.compile(optimizer='rmsprop', loss=nll)
 
         # During training, 1. we start by iterating over the dataset
         # 2. during each iter, we pass the input data to the encoder to obtain a set of mean and log-variance
         # parameters of the approximate posterior q(z/x)
         # 3. we then apply the reparametrization trick to sample from q(z/x)
         # 4. finally, we pass the reparam samples to the decoder to obtain the logits of the generative distrib p(x/z)
-        history = variational_ae.fit(x=x_train,
-                                     y=x_train,
-                                     epochs=self._steps, verbose=0,
-                                     batch_size=len(x_train),
-                                     callbacks=[loss_callback])
+
+        #history = variational_ae.fit(x=x_train,
+         #                            y=x_train,
+          #                           epochs=self._steps, verbose=0,
+           #                          batch_size=len(x_train),
+            #                         callbacks=[loss_callback])
+
+        history = variational_ae.fit(x_train,
+                    x_train,
+                    shuffle=True,
+                    epochs=self._steps,
+                    batch_size=len(x_train)) #,
+                    #validation_data=(x_test, x_test))
+
+        encoder = Model(x, z_mu)
 
         # Get network prediction
-        train_cu = variational_encoder.predict(x_train)
+        train_cu = encoder.predict(x_train)
         # do not sample from any distribution, just use the mean vector
-        train_rec = variational_decoder.predict(train_cu[0])
-        # train_rec = variational_ae.predict(x_train)
+        train_rec = variational_ae.predict(x_train)
 
         weights = []
         biases = []
         # Get encoder/decoder parameters
-        for layer in variational_encoder.layers:
+        for layer in encoder.layers:
             if layer.get_weights():
                 weights.append(layer.get_weights()[0])  # list of numpy arrays
                 biases.append(layer.get_weights()[1])
-        for layer in variational_decoder.layers:
+        for layer in decoder.layers:
             if layer.get_weights():
                 weights.append(layer.get_weights()[0])  # list of numpy arrays
                 biases.append(layer.get_weights()[1])
@@ -478,8 +490,8 @@ class Autoencoder(object):
         # unit Gaussian distribution p(z). The generator will then convert the latent sample z to logits of the
         # observation, giving a distribution p(x/z).
         if 'x_test' in kwargs:
-            test_cu = variational_encoder.predict(kwargs['x_test'])
-            test_rec = variational_decoder.predict(test_cu[0])
+            test_rec = variational_ae.predict(kwargs['x_test'])
+            test_cu = encoder.predict(kwargs['x_test'])
 
             return history, weights, biases, train_rec, train_cu, test_rec, test_cu
         else:
@@ -1156,3 +1168,31 @@ def read_transform(drPath, spec):
     off = np.reshape(off, (off.shape[0],))
     return rot, scale, off
 
+class KLDivergenceLayer(Layer):
+
+    """ Identity transform layer that adds KL divergence
+    to the final model loss.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.is_placeholder = True
+        super(KLDivergenceLayer, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+
+        mu, log_var = inputs
+
+        kl_batch = - .5 * K.sum(1 + log_var -
+                                K.square(mu) -
+                                K.exp(log_var), axis=-1)
+
+        self.add_loss(K.mean(kl_batch), inputs=inputs)
+
+        return inputs
+
+def nll(y_true, y_pred):
+    """ Negative log likelihood (Bernoulli). """
+
+    # keras.losses.binary_crossentropy gives the mean
+    # over the last axis. we require the sum
+    return K.sum(K.binary_crossentropy(y_true, y_pred), axis=-1)
