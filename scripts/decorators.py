@@ -4,6 +4,7 @@ import scripts.compute_bomi_map as compute_bomi_map
 import scripts.cv_utils as cv_utils
 import scripts.mediapipe_utils as mediapipe_utils
 from scripts.filter_butter_online import FilterButter3
+from scripts.JointMapper import JointMapper, CustomizationApplication
 import mediapipe as mp
 from threading import Thread, Lock
 import queue
@@ -18,6 +19,9 @@ def outer_control_loop(func):
 	"""
 	@functools.wraps(func)
 	def wrapper(bomi, *args, **kwargs):
+		# TODO: improve readability. Like, by a lot.
+
+		assert isinstance(bomi, (JointMapper, CustomizationApplication))
 
 		video_device = bomi.video_camera_device
 		dr_mode = bomi.dr_mode
@@ -50,13 +54,13 @@ def outer_control_loop(func):
 		q_frame = queue.Queue()
 		opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
 		opencv_thread.start()
-		print("openCV thread started in customization.")
+		print("openCV thread started.")
 
 		# initialize thread for mediapipe operations
 		mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
 														args=(bomi.current_image_data, bomi.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
 		mediapipe_thread.start()
-		print("mediapipe thread started in customization.")
+		print("mediapipe thread started.")
 
 		# ---- #
 		func(bomi, r, map, filter_curs, rot, scale, off)
@@ -64,9 +68,7 @@ def outer_control_loop(func):
 
 		opencv_thread.join()
 		mediapipe_thread.join()
-		# Once we have exited the main program loop, stop the game engine and release the capture
-		pygame.quit()
-		print("game engine object released.")
+		
 		holistic.close()
 		print("pose estimation object released terminated.")
 		cap.release()

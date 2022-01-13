@@ -228,6 +228,10 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			pygame.display.flip()
 
 			clock.tick(self.refresh_rate)
+			
+		# Once we have exited the main program loop, stop the game engine and release the capture
+		pygame.quit()
+		print("game engine object released.")
 
 	# ---- # Start # ---- #
 	def start(self):
