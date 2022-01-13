@@ -1,4 +1,3 @@
-from _typeshed import Self
 import os
 import queue
 from threading import Thread, Lock
@@ -157,11 +156,11 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 
 
 	def customization(self):
-		self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
+		self.initialize_customization()
 
 	# ---- # Testing Interface # ---- #
-	@outer_control_loop()
-	def initialize_customization(self, r, filter_curs, rot, scale, off):
+	@outer_control_loop
+	def initialize_customization(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 		"""
 		Allow the user to test out and customize the BoMI mapping.
 		:param self: CustomizationApplicationMechanism tkinter Frame. needed to retrieve textbox values programmatically

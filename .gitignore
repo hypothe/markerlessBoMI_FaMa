@@ -4,3 +4,4 @@ markerlessBoMI.egg-info/*
 scripts/__pycache__/*
 Practice/
 .vscode/settings.json
+.vscode/launch.json

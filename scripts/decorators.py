@@ -17,7 +17,7 @@ def outer_control_loop(func):
 	It instanciates the opencv and mediapipe threads
 	"""
 	@functools.wraps(func)
-	def wrapper(bomi, r, filter_curs, rot, scale, off):
+	def wrapper(bomi, *args, **kwargs):
 
 		video_device = bomi.video_camera_device
 		dr_mode = bomi.dr_mode
@@ -59,18 +59,18 @@ def outer_control_loop(func):
 		print("mediapipe thread started in customization.")
 
 		# ---- #
-		bomi.func(r, filter_curs, rot, scale, off)
+		func(bomi, r, map, filter_curs, rot, scale, off)
 		# ---- #
 
 		opencv_thread.join()
 		mediapipe_thread.join()
 		# Once we have exited the main program loop, stop the game engine and release the capture
 		pygame.quit()
-		print("game engine object released in customization.")
+		print("game engine object released.")
 		holistic.close()
-		print("pose estimation object released terminated in customization.")
+		print("pose estimation object released terminated.")
 		cap.release()
 		cv2.destroyAllWindows()
-		print("openCV object released in customization.")
+		print("openCV object released.")
 
 	return wrapper
