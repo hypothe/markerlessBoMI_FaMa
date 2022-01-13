@@ -2,11 +2,14 @@ import socketio
 import time
 from os import getenv
 
+SERVER_NAME = getenv("BOMI_SERVER_NAME", 'localhost') 
+
+
 class JointUpdaterNS(socketio.ClientNamespace):
-    def __init__(self):
+    def __init__(self, n_joints=3):
         socketio.ClientNamespace.__init__(self)
 
-        self.joints_values = [0, 0, 0]
+        self.joints_values = [0]*n_joints
 
     #@sio.event
     def on_connect(self):
@@ -14,8 +17,6 @@ class JointUpdaterNS(socketio.ClientNamespace):
 
     #@sio.event
     def on_getJointsValues(self, msg):
-
-        print("Got joints message {}".format(msg))
         for id, joint_val in enumerate(msg):
             try:
                 self.joints_values[id] = joint_val
@@ -23,10 +24,10 @@ class JointUpdaterNS(socketio.ClientNamespace):
                 pass
 
 class JointUpdater(socketio.Client):
-    def __init__(self):
+    def __init__(self, n_joints=3):
         socketio.Client.__init__(self)
 
-        self.ns = JointUpdaterNS()
+        self.ns = JointUpdaterNS(n_joints=n_joints)
         self.register_namespace(self.ns)
 
     def subscribeJVA(self):
@@ -46,10 +47,9 @@ if __name__ == "__main__":
     # which will be resolved by the DNS.
     # Not setting the variable allows for a local testing
 
-    server_name = getenv("BOMI_SERVER_NAME", 'localhost') 
 
     sio = JointUpdater()
-    sio.connect('http://'+server_name+':4242')
+    sio.connect('http://'+SERVER_NAME+':4242')
 
     time.sleep(2)
 

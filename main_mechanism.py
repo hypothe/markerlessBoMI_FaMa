@@ -19,6 +19,7 @@ from scripts.KeyBoard_Top import KeyBoard_Top
 import scripts.tk_utils as tk_utils
 from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
+from scripts.socket_JointUpdater import JointUpdater, SERVER_NAME
 import tkinter as tk
 from tkinter import Label, Text, Button
 from tkinter import messagebox
@@ -27,11 +28,10 @@ import pygame
 import time
 import math
 import copy
-
-
+import socketio
 
 class BoMIMechanism(JointMapper):
-	def __init__(self, win, nmap_components, *args, **kwargs):
+	def __init__(self, win, nmap_components, ns_server, *args, **kwargs):
 		JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
 		
 		# DEBUG
@@ -39,12 +39,19 @@ class BoMIMechanism(JointMapper):
 		self.video_camera_device = video_name
 		self.ent_cam.insert(INSERT, video_name)
 
-
 		self.refresh_rate = 30 # frames per second at max
 		self.interframe_delay = 1/self.refresh_rate 
 		# end - DEBUG
 
 		self.app = CustomizationApplicationMechanism(self)
+		# -- Socket handler -- #
+		try:
+			self.sio = JointUpdater(n_joints=nmap_components)
+			self.sio.connect(ns_server) # attempt connection
+		except socketio.exceptions.ConnectionError:
+			print("NodeJS Server unreachable. Practice will be local only")
+			self.sio = None
+			# TODO: what does it mean "local only"?
 
 	def map_to_workspace(self, drPath, train_cu):
 		# retrieve transformation from generated values, to normalize 
@@ -84,8 +91,12 @@ class BoMIMechanism(JointMapper):
 			self.master.wait_window(self.w.top)
 			self.btn_start["state"] = "disabled"
 
+	@outer_control_loop
 	def start_mechanism_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 			
+			# DEBUG:
+			# self.sio.subscribeJVA() # inform server we're interested in updates
+
 			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 			
 			screen_width, screen_height = pyautogui.size()
@@ -133,6 +144,9 @@ class BoMIMechanism(JointMapper):
 					filter_curs.update_cursor(joint_values[i], i)
 
 				joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
+				
+				if self.sio is not None:
+					self.sio.sendJointsValues(joint_values) # send to the joints' values to the server
 
 				end_time = time.time()
 
@@ -322,7 +336,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 
 		# save customization values
 		with open(drPath + "rotation_custom.txt", 'w') as f:
-				print('', file=f)
+				print('0', file=f)
 		np.savetxt(drPath + "scale_custom.txt", scale)
 		np.savetxt(drPath + "offset_custom.txt", off)
 
@@ -337,7 +351,7 @@ if __name__ == "__main__":
 
 		
 
-		obj = BoMIMechanism(win=win, nmap_components=3)
+		obj = BoMIMechanism(win=win, nmap_components=3, ns_server='http://'+SERVER_NAME+':4242')
 
 		# initiate Tkinter mainloop
 		win.mainloop()
