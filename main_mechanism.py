@@ -1,3 +1,4 @@
+from _typeshed import Self
 import os
 import queue
 from threading import Thread, Lock
@@ -12,6 +13,7 @@ import scripts.mediapipe_utils as mediapipe_utils
 from scripts.stopwatch import StopWatch
 from scripts.filter_butter_online import FilterButter3
 import scripts.compute_bomi_map as compute_bomi_map
+from scripts.decorators import outer_control_loop
 import scripts.cv_utils as cv_utils
 from scripts.JointMapper import JointMapper, CustomizationApplication
 from scripts.KeyBoard_Top import KeyBoard_Top
@@ -26,6 +28,7 @@ import pygame
 import time
 import math
 import copy
+
 
 
 class BoMIMechanism(JointMapper):
@@ -150,61 +153,15 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 				o.append(0)
 		return o
 
-	def wrapper_control_loop(self, dr_mode, drPath, num_joints, joints, video_device, inner_control_loop):
-		# Create object of openCV, Reaching class and filter_butter3
-		cap = cv_utils.VideoCaptureOpt(video_device)
-
-		r = Reaching()
-		map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
-		
-		filter_curs = FilterButter3("lowpass_4", nc=self.nmap_component)
-		
-		# initialize MediaPipe Pose
-		mp_holistic = mp.solutions.holistic
-		holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-																		smooth_landmarks=False)
-
-
-		rot, scale, off = compute_bomi_map.read_transform(drPath, "dr")
-		
-		# initialize lock for avoiding race conditions in threads
-		lock = Lock()
-
-		self.body = queue.Queue(maxsize=1)
-
-		# start thread for OpenCV. current frame will be appended in a queue in a separate thread
-		q_frame = queue.Queue()
-		opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
-		opencv_thread.start()
-		print("openCV thread started in customization.")
-
-		# initialize thread for mediapipe operations
-		mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-														args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
-		mediapipe_thread.start()
-		print("mediapipe thread started in customization.")
-
-		# ---- #
-		inner_control_loop()
-		# ---- #
-
-		opencv_thread.join()
-		mediapipe_thread.join()
-		# Once we have exited the main program loop, stop the game engine and release the capture
-		pygame.quit()
-		print("game engine object released in customization.")
-		holistic.close()
-		print("pose estimation object released terminated in customization.")
-		cap.release()
-		cv2.destroyAllWindows()
-		print("openCV object released in customization.")
+	
 
 
 	def customization(self):
 		self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
 
 	# ---- # Testing Interface # ---- #
-	def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
+	@outer_control_loop()
+	def initialize_customization(self, r, filter_curs, rot, scale, off):
 		"""
 		Allow the user to test out and customize the BoMI mapping.
 		:param self: CustomizationApplicationMechanism tkinter Frame. needed to retrieve textbox values programmatically
@@ -215,42 +172,6 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		:param video device:
 		:return:
 		"""
-		
-		# Create object of openCV, Reaching class and filter_butter3
-		cap = cv_utils.VideoCaptureOpt(video_device)
-
-		r = Reaching()
-		map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
-		
-		filter_curs = FilterButter3("lowpass_4", nc=self.nmap_component)
-		
-		# initialize MediaPipe Pose
-		mp_holistic = mp.solutions.holistic
-		holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-																		smooth_landmarks=False)
-
-
-		rot, scale, off = compute_bomi_map.read_transform(drPath, "dr")
-		
-		# initialize lock for avoiding race conditions in threads
-		lock = Lock()
-
-		self.body = queue.Queue(maxsize=1)
-
-		# start thread for OpenCV. current frame will be appended in a queue in a separate thread
-		q_frame = queue.Queue()
-		opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
-		opencv_thread.start()
-		print("openCV thread started in customization.")
-
-		# initialize thread for mediapipe operations
-		mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-														args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
-		mediapipe_thread.start()
-		print("mediapipe thread started in customization.")
-
-		# TODO: show n sliders, one for each joint, (simulate them with balls and lines if needed)
-		# making them go up or down depending on the joint moved by the user.
 
 		pygame.init()
 
@@ -308,17 +229,6 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			pygame.display.flip()
 
 			clock.tick(self.refresh_rate)
-
-		opencv_thread.join()
-		mediapipe_thread.join()
-		# Once we have exited the main program loop, stop the game engine and release the capture
-		pygame.quit()
-		print("game engine object released in customization.")
-		holistic.close()
-		print("pose estimation object released terminated in customization.")
-		cap.release()
-		cv2.destroyAllWindows()
-		print("openCV object released in customization.")
 
 	# ---- # Start # ---- #
 	def start(self):
