@@ -94,6 +94,24 @@ def kld_loss(codings_log_var, codings_mean, beta):
 
     return kld_loss
 
+# construct a custom layer to calculate the loss
+class CustomVariationalLayer(Layer):
+
+    def vae_loss(self, x, z_decoded):
+        x = K.flatten(x)
+        z_decoded = K.flatten(z_decoded)
+        # Reconstruction loss
+        xent_loss = keras.losses.binary_crossentropy(x, z_decoded)
+        return xent_loss
+
+    # adds the custom loss to the class
+    def call(self, inputs):
+        x = inputs[0]
+        z_decoded = inputs[1]
+        loss = self.vae_loss(x, z_decoded)
+        self.add_loss(loss, inputs=inputs)
+        return x
+
 
 def custom_loss_vae(codings_log_var, codings_mean, beta):
     """
@@ -416,38 +434,64 @@ class Autoencoder(object):
 
         # Decoder definition
         decoder = Sequential([
-            Dense(self._h2, input_dim=self._cu, activation=self._activation),
-            Dense(self._h2, input_dim=self._h2, activation=self._activation),
-            Dense(len(x_train[0]), activation=self._activation)
+            Dense(self._h2, input_dim=self._cu, activation=self._activation, name="input_decoder"),
+            Dense(self._h2, input_dim=self._h2, activation=self._activation, name="intermediate_decoder"),
+            Dense(len(x_train[0]), activation=self._activation, name="reconstruction_decoder")
         ])
         decoder.summary()
 
         # Encoder definition
-        x = Input(shape=(len(x_train[0]),))
-        h = Dense(self._h1, activation=self._activation)(x)
-        h = Dense(self._h1, activation=self._activation)(h)
+        x = Input(shape=len(x_train[0],), name="input")
+        h = Dense(self._h1, activation=self._activation, name="intermediate_encoder")(x)
+        h = Dense(self._h1, activation=self._activation, name="latent_decoder")(h)
         # During optimization, we can sample from q(z/x) by first sampling from a unit Gaussian, and then multiplying
         # by the standard deviation and adding the mean. This ensures the gradients could pass through the sample
         # to the interence network parameters. This is called reparametrization trick
         z_mu = Dense(self._cu)(h)
         z_log_var = Dense(self._cu)(h)
 
-        z_mu, z_log_var = KLDivergenceLayer()([z_mu, z_log_var])
-        z_sigma = Lambda(lambda t: K.exp(.5 * t))(z_log_var)
+        # Harvard version ######
 
-        epsilon_std = 1.0
-        eps = Input(tensor=K.random_normal(stddev=epsilon_std, shape=(K.shape(x)[0], self._cu)))
-        z_eps = Multiply()([z_sigma, eps])
-        z = Add()([z_mu, z_eps])
+        # sampling function
+        def sampling(args):
+            z_mu, z_log_var = args
+            epsilon_std = 1.0
+            epsilon = K.random_normal(shape=(K.shape(z_mu)[0], self._cu),
+                                      mean=0., stddev=epsilon_std)
+            return z_mu + K.exp(z_log_var) * epsilon
 
+        # sample vector from the latent distribution
+        z = Lambda(sampling)([z_mu, z_log_var])
         x_pred = decoder(z)
 
-        variational_ae = Model(inputs=[x, eps], outputs=x_pred)
+        # apply the custom loss to the input images and the decoded latent distribution sample
+        y = CustomVariationalLayer()([x, x_pred])
 
-        #variational_ae.compile(optimizer=Adam(learning_rate=self._alpha),
-         #                      loss=custom_loss_vae(z_sigma, z_mu, beta),
-          #                     metrics=[mse_loss, kld_loss(z_sigma, z_mu, beta)])
-        variational_ae.compile(optimizer='rmsprop', loss=nll)
+        # VAE model statement
+        vae = Model(x, y)
+        vae.compile(optimizer='rmsprop', loss=None)
+
+        # Tiao Version #######
+
+        # z_mu, z_log_var = KLDivergenceLayer()([z_mu, z_log_var])
+        # z_sigma = Lambda(lambda t: K.exp(.5 * t))(z_log_var)
+
+        #epsilon_std = 1.0
+        # eps = Input(tensor=K.random_normal(stddev=epsilon_std, shape=(K.shape(x)[0], self._cu)))
+        # z_eps = Multiply()([z_sigma, eps])
+        # z = Add()([z_mu, z_eps])
+        # vae = Model(inputs=[x, eps], outputs=x_pred)
+        #  x_pred = decoder(z)
+        #vae.compile(optimizer=Adam(learning_rate=self._alpha),
+                        #       loss=custom_loss_vae(z_sigma, z_mu, beta),
+                         #      metrics=[mse_loss, kld_loss(z_sigma, z_mu, beta)])
+
+
+
+        #vae.compile(optimizer=Adam(learning_rate=self._alpha), loss=nll)
+
+        # It does not matter the the type, but show us the vae
+        vae.summary()
 
         # During training, 1. we start by iterating over the dataset
         # 2. during each iter, we pass the input data to the encoder to obtain a set of mean and log-variance
@@ -455,17 +499,26 @@ class Autoencoder(object):
         # 3. we then apply the reparametrization trick to sample from q(z/x)
         # 4. finally, we pass the reparam samples to the decoder to obtain the logits of the generative distrib p(x/z)
 
-        #history = variational_ae.fit(x=x_train,
+        # Harvard
+        history = vae.fit(x=x_train, y=None,
+                shuffle=True,
+                epochs=self._steps,
+                batch_size=len(x_train))
+                #validation_data=(val_x, None))
+
+        # Tiao
+        #history = vae.fit(x=x_train,
          #                            y=x_train,
           #                           epochs=self._steps, verbose=0,
            #                          batch_size=len(x_train),
             #                         callbacks=[loss_callback])
 
-        history = variational_ae.fit(x_train,
-                    x_train,
-                    shuffle=True,
-                    epochs=self._steps,
-                    batch_size=len(x_train)) #,
+
+       # history = variational_ae.fit(x_train,
+        #            x_train,
+         #           shuffle=True,
+          #          epochs=self._steps,
+           #         batch_size=len(x_train)) #,
                     #validation_data=(x_test, x_test))
 
         encoder = Model(x, z_mu)
@@ -473,7 +526,7 @@ class Autoencoder(object):
         # Get network prediction
         train_cu = encoder.predict(x_train)
         # do not sample from any distribution, just use the mean vector
-        train_rec = variational_ae.predict(x_train)
+        train_rec = vae.predict(x_train)
 
         weights = []
         biases = []
@@ -491,7 +544,7 @@ class Autoencoder(object):
         # unit Gaussian distribution p(z). The generator will then convert the latent sample z to logits of the
         # observation, giving a distribution p(x/z).
         if 'x_test' in kwargs:
-            test_rec = variational_ae.predict(kwargs['x_test'])
+            test_rec = vae.predict(kwargs['x_test'])
             test_cu = encoder.predict(kwargs['x_test'])
 
             return history, weights, biases, train_rec, train_cu, test_rec, test_cu
@@ -868,3 +921,5 @@ def nll(y_true, y_pred):
     # keras.losses.binary_crossentropy gives the mean
     # over the last axis. we require the sum
     return K.sum(K.binary_crossentropy(y_true, y_pred), axis=-1)
+
+
