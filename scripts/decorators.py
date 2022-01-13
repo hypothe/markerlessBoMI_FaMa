@@ -32,6 +32,9 @@ def outer_control_loop(func):
 		# Create object of openCV, Reaching class and filter_butter3
 		cap = cv_utils.VideoCaptureOpt(video_device)
 
+		bomi.refresh_rate = cap.get(cv2.CAP_PROP_FPS)
+		bomi.interframe_delay = 1/bomi.refresh_rate 
+
 		r = Reaching()
 		map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
 		

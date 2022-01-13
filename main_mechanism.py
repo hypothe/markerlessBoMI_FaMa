@@ -38,6 +38,10 @@ class BoMIMechanism(JointMapper):
 		video_name = "/root/videos/calib_bomi.mp4"
 		self.video_camera_device = video_name
 		self.ent_cam.insert(INSERT, video_name)
+
+
+		self.refresh_rate = 30 # frames per second at max
+		self.interframe_delay = 1/self.refresh_rate 
 		# end - DEBUG
 
 		self.app = CustomizationApplicationMechanism(self)
@@ -66,6 +70,74 @@ class BoMIMechanism(JointMapper):
 		np.savetxt(drPath + "offset_dr.txt", off)
 		
 		print("Joint-space affine tranformation done")
+
+		# ---- # Start # ---- #
+	def start(self):
+		# check whether customization parameters have been saved
+		if os.path.isfile(self.drPath + "offset_custom.txt"):
+			self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
+			self.master.wait_window(self.w.top)
+			if self.w.status:
+				self.start_mechanism_control()
+		else:
+			self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
+			self.master.wait_window(self.w.top)
+			self.btn_start["state"] = "disabled"
+
+	def start_mechanism_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
+			
+			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
+			
+			screen_width, screen_height = pyautogui.size()
+			window_width = math.ceil(screen_width / 2)
+			
+			win_name = "Mechanism Control"
+
+			while not r.is_terminated:
+				# --- Main event loop
+				start_time = 0
+				end_time = 0
+
+				if r.is_paused:
+					time.sleep(self.interframe_delay)
+					continue
+
+				start_time = time.time()
+
+
+				 # get current value of body
+				try:
+					r.body = self.body.get_nowait()
+				except queue.Empty:
+					pass
+
+				with self.current_image_data.lock:
+					frame = copy.deepcopy(self.current_image_data.image)
+
+				# -- Display -- #
+				frame.flags.writeable = True
+
+				frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+				cv2.imshow(win_name, frame)
+				cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+				# -- Mapping --
+				joint_values = reaching_functions.get_mapped_values(r.body, map, \
+																														rot, scale, off, \
+																														0, scale_custom, off_custom)
+
+				# -- Saturation --
+				joint_values = [reaching_functions.saturate(j, -math.pi, math.pi) for j in joint_values]
+
+				# -- Filtering --
+				for i in range(self.nmap_component):
+					filter_curs.update_cursor(joint_values[i], i)
+
+				joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
+
+				end_time = time.time()
+
+				time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
+
 
 
 class CustomizationApplicationMechanism(CustomizationApplication):
@@ -153,8 +225,6 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		return o
 
 	
-
-
 	def customization(self):
 		self.initialize_customization()
 
@@ -190,7 +260,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			
 			if r.is_paused: # wait and skip
 				clock.tick(self.refresh_rate)
-				break
+				continue
 		
 			 # get current value of body
 			try:
@@ -232,23 +302,6 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		# Once we have exited the main program loop, stop the game engine and release the capture
 		pygame.quit()
 		print("game engine object released.")
-
-	# ---- # Start # ---- #
-	def start(self):
-		# check whether customization parameters have been saved
-		if os.path.isfile(self.drPath + "offset_custom.txt"):
-			self.w = tk_utils.popupWindow(self.master, "You will now start practice.")
-			self.master.wait_window(self.w.top)
-			if self.w.status:
-				self.start_mechanism_control(self.dr_mode, self.drPath, self.num_joints, self.joints,
-                                             self.video_camera_device)
-		else:
-			self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
-			self.master.wait_window(self.w.top)
-			self.btn_start["state"] = "disabled"
-
-	def start_mechanism_control(self, dr_mode, drPath, num_joints, joints, video_device):
-			pass
 
 	# ---- # Param Saving # ---- #
 	def save_parameters(self):
