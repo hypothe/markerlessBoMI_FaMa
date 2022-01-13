@@ -55,7 +55,7 @@ class JointMapper(tk.Frame):
     class that defines the main tkinter window --> graphic with buttons etc..
     """
 
-    def __init__(self, win, n_map_components, *args, **kwargs):
+    def __init__(self, win, nmap_components, *args, **kwargs):
 
         self.video_camera_device = 0 # -> 0 for the camera
 
@@ -74,7 +74,7 @@ class JointMapper(tk.Frame):
         self.joints = np.zeros((5, 1))
         self.dr_mode = 'ae'
         self.font_size = 18
-        self.n_map_component = n_map_components
+        self.nmap_component = nmap_components
 
         self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints)
         self.btn_num_joints.config(font=("Arial", self.font_size))
@@ -260,17 +260,17 @@ class JointMapper(tk.Frame):
 
                 if self.check_alg.get() == 0:
                     self.drPath = self.calibPath + 'PCA/'
-                    train_cu = train_pca(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_pca(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'pca'
 
                 elif self.check_alg.get() == 1:
                     self.drPath = self.calibPath + 'AE/'
-                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_ae(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'ae'
 
                 elif self.check_alg.get() == 2:
                     self.drPath = self.calibPath + 'AE/'
-                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_ae(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'ae'
 
                 # rotate, scale and offset the original features
@@ -297,7 +297,7 @@ class JointMapper(tk.Frame):
             self.app.generate_window(self.newWindow, drPath=self.drPath, num_joints=self.num_joints,
                                                 joints=self.joints, dr_mode=self.dr_mode,
                                                 video_camera_device=self.video_camera_device,
-                                                nmap_component=self.n_map_component)
+                                                nmap_component=self.nmap_component)
         else:
             self.w = tk_utils.popupWindow(self.master, "Compute BoMI map first.")
             self.master.wait_window(self.w.top)

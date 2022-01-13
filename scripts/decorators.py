@@ -63,7 +63,7 @@ def outer_control_loop(func):
 		print("mediapipe thread started.")
 
 		# ---- #
-		func(bomi, r, map, filter_curs, rot, scale, off)
+		func(bomi, r, map, filter_curs, rot, scale, off, *args, **kwargs)
 		# ---- #
 
 		opencv_thread.join()

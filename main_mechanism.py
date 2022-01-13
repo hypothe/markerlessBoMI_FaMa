@@ -31,8 +31,8 @@ import copy
 
 
 class BoMIMechanism(JointMapper):
-	def __init__(self, win, n_map_components, *args, **kwargs):
-		JointMapper.__init__(self, win, n_map_components, *args, **kwargs)
+	def __init__(self, win, nmap_components, *args, **kwargs):
+		JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
 		
 		# DEBUG
 		video_name = "/root/videos/calib_bomi.mp4"
@@ -284,7 +284,7 @@ if __name__ == "__main__":
 
 		
 
-		obj = BoMIMechanism(win=win, n_map_components=3)
+		obj = BoMIMechanism(win=win, nmap_components=3)
 
 		# initiate Tkinter mainloop
 		win.mainloop()
