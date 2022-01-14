@@ -388,8 +388,9 @@ class JointMapper(tk.Frame):
                     mp_holistic.HAND_CONNECTIONS,
                     landmark_drawing_spec=mp_drawing_styles
                         .get_default_pose_landmarks_style())
+            
             # Flip the image horizontally for a selfie-view display.
-
+            frame = cv2.flip(frame, 1)
 
             cv2.imshow(wind_name, frame)
             cv2.moveWindow(wind_name, int(window_width / 2), int(window_height / 4))

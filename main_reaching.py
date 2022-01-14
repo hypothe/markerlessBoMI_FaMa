@@ -189,7 +189,7 @@ class BoMIReaching(JointMapper):
                     
                     frame.flags.writeable = True
 
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    frame = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_RGB2BGR)
                     cv2.imshow(win_name, frame)
                     cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
 

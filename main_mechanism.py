@@ -35,12 +35,12 @@ class BoMIMechanism(JointMapper):
 		JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
 		
 		# DEBUG
-		video_name = "/root/videos/calib_bomi.mp4"
-		self.video_camera_device = video_name
-		self.ent_cam.insert(INSERT, video_name)
+		#video_name = "/root/videos/calib_bomi.mp4"
+		#self.video_camera_device = video_name
+		#self.ent_cam.insert(INSERT, video_name)
 
-		self.refresh_rate = 30 # frames per second at max
-		self.interframe_delay = 1/self.refresh_rate 
+		#self.refresh_rate = 30 # frames per second at max
+		#self.interframe_delay = 1/self.refresh_rate 
 		# end - DEBUG
 
 		self.app = CustomizationApplicationMechanism(self)
@@ -133,7 +133,7 @@ class BoMIMechanism(JointMapper):
 				try:
 					r.body = self.body.get_nowait()
 				except queue.Empty:
-					pass
+					r.body = np.zeros(self.num_joints,)
 
 				# -- Render --
 				if render_frame:
@@ -311,7 +311,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			try:
 				r.body = self.body.get_nowait()
 			except queue.Empty:
-				pass
+				r.body = np.zeros(self.num_joints,)
 
 			# -- Mapping --
 			#scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
