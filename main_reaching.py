@@ -107,7 +107,7 @@ class BoMIReaching(JointMapper):
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
 
-            
+    @outer_control_loop()  
     def start_mouse_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0, keyboard_bool=False):
         """
         function to perform online cursor control
