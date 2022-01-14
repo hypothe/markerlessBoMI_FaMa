@@ -116,8 +116,6 @@ class BoMIMechanism(JointMapper):
 			screen = pygame.display.set_mode(size)
 			slider_length = 300 # px
 
-			print("#DEBUG: ref rate {}".format(self.refresh_rate))
-
 			while not r.is_terminated:
 				for event in pygame.event.get():
 					if event.type == pygame.QUIT:
@@ -171,7 +169,6 @@ class BoMIMechanism(JointMapper):
 				self.master.update()
 				
 				if self.sio is not None:
-					print("#DEBUG: try to send data")
 					self.sio.sendJointsValues(joint_values) # send to the joints' values to the server
 
 				#end_time = time.time()
