@@ -1012,6 +1012,7 @@ def train_ae(calibPath, drPath, n_map_component):
     return train_cu
 
 def load_bomi_map(dr_mode, drPath):
+    map = None
     if dr_mode == 'pca':
         map = pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values
     elif dr_mode == 'ae':

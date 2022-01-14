@@ -91,12 +91,11 @@ class BoMIMechanism(JointMapper):
 			self.master.wait_window(self.w.top)
 			self.btn_start["state"] = "disabled"
 
-	@outer_control_loop
+	@outer_control_loop()
 	def start_mechanism_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 			
 			# DEBUG:
 			# self.sio.subscribeJVA() # inform server we're interested in updates
-
 			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 			
 			screen_width, screen_height = pyautogui.size()
@@ -111,10 +110,10 @@ class BoMIMechanism(JointMapper):
 
 				if r.is_paused:
 					time.sleep(self.interframe_delay)
+					print("#DEBUG: r paused, wait&retry")
 					continue
 
 				start_time = time.time()
-
 
 				 # get current value of body
 				try:
@@ -144,8 +143,17 @@ class BoMIMechanism(JointMapper):
 					filter_curs.update_cursor(joint_values[i], i)
 
 				joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
+
+				if cv2.waitKey(1) == 27:
+					break  # esc to quit
+	
+				# update tkinter interface
+				self.master.update()
+
+				print(joint_values)
 				
 				if self.sio is not None:
+					print("#DEBUG: try to send data")
 					self.sio.sendJointsValues(joint_values) # send to the joints' values to the server
 
 				end_time = time.time()
@@ -243,7 +251,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		self.initialize_customization()
 
 	# ---- # Testing Interface # ---- #
-	@outer_control_loop
+	@outer_control_loop()
 	def initialize_customization(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 		"""
 		Allow the user to test out and customize the BoMI mapping.

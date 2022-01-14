@@ -127,7 +127,6 @@ class BoMIReaching(JointMapper):
         off = self.map_workspace2screenspace_offsetScale(off)
 
         rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
-        screen_width, screen_height = pyautogui.size()
 
         # Keyboard Thread
         if keyboard_bool:
@@ -233,7 +232,7 @@ class BoMIReaching(JointMapper):
             kb_app.cleanup()
 
 
-    @outer_control_loop
+    @outer_control_loop()
     def start_reaching(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
         """
         function to perform online cursor control - practice
@@ -472,7 +471,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
         self.parent.destroy()
         self.mainTk.btn_start["state"] = "normal"
 
-    @outer_control_loop
+    @outer_control_loop()
     def initialize_customization(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0, drPath=""):
         """
         initialize objects needed for online cursor control. Start all the customization threads as well

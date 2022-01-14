@@ -18,6 +18,7 @@ from tkinter.messagebox import showinfo
 
 # For pygame
 import pygame
+from scripts.decorators import outer_control_loop
 # For reaching task
 from scripts.reaching import Reaching
 import scripts.reaching as reaching
@@ -307,7 +308,7 @@ class JointMapper(tk.Frame):
         # implementation-specific action
         self.w = tk_utils.popupWindow(self.master, "This function is not implemented here.")
 
-
+    @outer_control_loop(qbody_maxsize=-1)
     def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
         """
         function called to collect calibration data from webcam
