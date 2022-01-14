@@ -37,6 +37,8 @@ def outer_control_loop(qbody_maxsize=1, is_calib = False):
 				raise IOError("Cannot open webcam")
 
 			bomi.refresh_rate = cap.get(cv2.CAP_PROP_FPS)
+			if bomi.refresh_rate <= 0:
+				bomi.refresh_rate = 30
 			bomi.interframe_delay = 1/bomi.refresh_rate 
 
 			r = Reaching()

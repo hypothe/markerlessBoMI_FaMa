@@ -53,6 +53,7 @@ class BoMIMechanism(JointMapper):
 			self.sio = None
 			# TODO: what does it mean "local only"?
 
+
 	def map_to_workspace(self, drPath, train_cu):
 		# retrieve transformation from generated values, to normalize 
 		# the forward pass later
@@ -96,24 +97,37 @@ class BoMIMechanism(JointMapper):
 			
 			# DEBUG:
 			# self.sio.subscribeJVA() # inform server we're interested in updates
+			render_frame = False
+
 			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 			
 			screen_width, screen_height = pyautogui.size()
-			window_width = math.ceil(screen_width / 2)
+			window_width, window_height = math.ceil(screen_width / 2), math.ceil(screen_height / 2)
+			cv_width, cv_height = math.ceil(screen_width / 4), math.ceil(screen_height / 4)
 			
 			win_name = "Mechanism Control"
+			
+			pygame.init()
+
+			# The clock will be used to control how fast the screen updates
+			clock = pygame.time.Clock()
+			# Open a new window
+			size = (r.width, r.height)
+			screen = pygame.display.set_mode(size)
+			slider_length = 300 # px
+
+			print("#DEBUG: ref rate {}".format(self.refresh_rate))
 
 			while not r.is_terminated:
+				for event in pygame.event.get():
+					if event.type == pygame.QUIT:
+						r.is_terminated = True
 				# --- Main event loop
-				start_time = 0
-				end_time = 0
 
 				if r.is_paused:
-					time.sleep(self.interframe_delay)
-					print("#DEBUG: r paused, wait&retry")
+					#time.sleep(self.interframe_delay)
+					clock.tick(self.refresh_rate)
 					continue
-
-				start_time = time.time()
 
 				 # get current value of body
 				try:
@@ -121,16 +135,25 @@ class BoMIMechanism(JointMapper):
 				except queue.Empty:
 					pass
 
-				with self.current_image_data.lock:
-					frame = copy.deepcopy(self.current_image_data.image)
+				# -- Render --
+				if render_frame:
+					with self.current_image_data.lock:
+						frame = copy.deepcopy(self.current_image_data.image)
 
-				# -- Display -- #
-				frame.flags.writeable = True
+					# -- Display -- #
+					frame.flags.writeable = True
 
-				frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-				cv2.imshow(win_name, frame)
-				cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+					frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+					cv2.imshow(win_name, frame)
+					cv2.resizeWindow(win_name, int(cv_width), (int(cv_height)))
+					cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+					
+					if cv2.waitKey(1) == 27:
+						break  # esc to quit
+
 				# -- Mapping --
+				#scale_custom = [s*slider_length/(2.0*math.pi) for s in scale_custom]
+				#off_custom   = [s + r.height/2.0 for s in off_custom]
 				joint_values = reaching_functions.get_mapped_values(r.body, map, \
 																														rot, scale, off, \
 																														0, scale_custom, off_custom)
@@ -144,22 +167,22 @@ class BoMIMechanism(JointMapper):
 
 				joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
 
-				if cv2.waitKey(1) == 27:
-					break  # esc to quit
-	
 				# update tkinter interface
 				self.master.update()
-
-				print(joint_values)
 				
 				if self.sio is not None:
 					print("#DEBUG: try to send data")
 					self.sio.sendJointsValues(joint_values) # send to the joints' values to the server
 
-				end_time = time.time()
+				#end_time = time.time()
 
-				time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
+				#time.sleep(max(0, self.interframe_delay - (end_time - start_time)))
+				display_joints_slider(screen, self.nmap_component, joint_values, \
+														r.width, r.height, r.crs_radius, slider_length)
+				pygame.display.flip()
+				clock.tick(self.refresh_rate)
 
+			pygame.quit()
 
 
 class CustomizationApplicationMechanism(CustomizationApplication):
@@ -291,15 +314,15 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 				pass
 
 			# -- Mapping --
-			scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
-			off_custom   = [s + r.height/2.0 for s in self.retrieve_txt_o()]
+			#scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
+			#off_custom   = [s + r.height/2.0 for s in self.retrieve_txt_o()]
 			joint_values = reaching_functions.get_mapped_values(r.body, map, \
 																													rot, scale, off, \
-																													0, scale_custom, off_custom,\
+																													0, self.retrieve_txt_g(), self.retrieve_txt_o(),\
 																													joints_display_displacement)
 
 			# -- Saturation --
-			joint_values = [reaching_functions.saturate(j, r.height/2 - slider_length/2, r.height/2 + slider_length/2) for j in joint_values]
+			joint_values = [reaching_functions.saturate(j, -math.pi, math.pi) for j in joint_values]
 
 			# -- Filtering --
 			for i in range(self.nmap_component):
@@ -308,22 +331,15 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 			joint_values = [filter_curs.filtered_value[i] for i in range(self.nmap_component)]
 
 			# -- Display --
-			screen.fill(BLACK)
-			
-			for i in range(self.nmap_component):
-				pygame.draw.line(screen, bd_utils.WHITE, (int(r.width * (i+1)/(self.nmap_component+1)), r.height/2-slider_length/2 ),\
-					(int(r.width * (i+1)/(self.nmap_component+1)), r.height/2+slider_length/2 ))
-				
-				pygame.draw.circle(screen, CURSOR, (int(r.width * (i+1)/(self.nmap_component+1)), \
-																						int(joint_values[i])), r.crs_radius)
-
+			display_joints_slider(screen, self.nmap_component, joint_values, \
+														r.width, r.height, r.crs_radius, slider_length)
 			pygame.display.flip()
-
 			clock.tick(self.refresh_rate)
 			
 		# Once we have exited the main program loop, stop the game engine and release the capture
 		pygame.quit()
 		print("game engine object released.")
+
 
 	# ---- # Param Saving # ---- #
 	def save_parameters(self):
@@ -350,7 +366,17 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 
 		print('Customization values have been saved. You can continue with practice.')
 
-	
+def display_joints_slider(screen, nmap_component, joint_values, win_width, win_height, crs_radius, slider_length):
+	screen.fill(BLACK)
+			
+	for i in range(nmap_component):
+		pygame.draw.line(screen, bd_utils.WHITE, (int(win_width * (i+1)/(nmap_component+1)), win_height/2-slider_length/2 ),\
+			(int(win_width * (i+1)/(nmap_component+1)), win_height/2+slider_length/2 ))
+		
+		pygame.draw.circle(screen, CURSOR, (int(win_width * (i+1)/(nmap_component+1)), \
+																				int(joint_values[i]*slider_length/(2*math.pi) + win_height/2)), crs_radius)
+
+
 
 # MAIN
 if __name__ == "__main__":
