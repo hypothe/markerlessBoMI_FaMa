@@ -212,7 +212,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screen_width, screen_height)
+                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screen_width, screen_height, dr_mode)
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 # Filter the cursor
@@ -391,7 +391,7 @@ class BoMIReaching(JointMapper):
                     pass
 
                 # apply BoMI forward map to body vector to obtain cursor position.
-                r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position  \
                     (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
                 # Check if the crs is bouncing against any of the 4 walls:
                 
@@ -652,7 +652,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
                     pass
 
                 # apply BoMI forward map to body vector to obtain cursor position
-                r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off)
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off, self.dr_mode)
 
                 # Apply extra customization according to textbox values (try/except allows to catch invalid inputs)
                 try:

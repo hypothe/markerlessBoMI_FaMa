@@ -72,23 +72,24 @@ def filter_cursor(r, filter_curs):
     return filter_curs.filtered_value[0], filter_curs.filtered_value[1]
 
 
-def update_cursor_position_custom(body, map, rot, scale, off):
+def update_cursor_position_custom(body, map, rot, scale, off, dr_mode):
 
     if type(map) != tuple:
         cu = np.dot(body, map)
     else:
-        h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
-        h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
-        cu = np.dot(h, map[0][2]) + map[1][2]
-
-        def sampling(args):
-            z_mu, z_log_var = args
-            epsilon_std = 1.0
-            epsilon = K.random_normal(shape=(K.shape(z_mu)[0], len(cu)),
-                                      mean=0., stddev=epsilon_std)
-            return z_mu + K.exp(z_log_var) * epsilon
-
-        cu = sampling(cu, cu)
+        if dr_mode == "vae":
+            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
+            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
+            mu_map = np.dot(h, map[0][2]) + map[1][2]
+            log_sigma_map = np.dot(h, map[0][3]) + map[1][3]
+            epsilon = random.gauss(0, 0.1)
+            cu = []
+            cu.append(mu_map[0] + np.exp(log_sigma_map[0]) * epsilon)
+            cu.append(mu_map[1] + np.exp(log_sigma_map[1]) * epsilon)
+        else:
+            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
+            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
+            cu = np.dot(h, map[0][2]) + map[1][2]
 
     # Applying rotation
     cu[0] = cu[0] * np.cos(np.pi / 180 * rot) - cu[1] * np.sin(np.pi / 180 * rot)
@@ -112,14 +113,23 @@ def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
     # edit: screen space is left-handed! remember that in rotation!
     return rotate_xy_RH(xy, -rot)
 
-def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height):
+def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height, dr_mode):
 
     if type(map) != tuple:
         cu = np.dot(body, map)
     else:
-        h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
-        h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
-        cu = np.dot(h, map[0][2]) + map[1][2]
+        if dr_mode == "vae":
+            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
+            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
+            mu_map = np.dot(h, map[0][2]) + map[1][2]
+            log_sigma_map = np.dot(h, map[0][3]) + map[1][3]
+            epsilon = random.gauss(0, 0.1)
+            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0]) * epsilon, \
+                            mu_map[1] + np.exp(log_sigma_map[1]) * epsilon])
+        else:
+            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
+            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
+            cu = np.dot(h, map[0][2]) + map[1][2]
 
     # Applying rotation, scale and offset computed after AE training
     cu = rotate_xy_RH(cu, rot_ae)

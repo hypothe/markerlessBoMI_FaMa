@@ -95,63 +95,22 @@ def kld_loss(codings_log_var, codings_mean, beta):
     return kld_loss
 
 # construct a custom layer to calculate the loss
-class CustomVariationalLayer(Layer):
+class CustomVariationalLayer(tf.keras.layers.Layer):
 
-    def vae_loss(self, x, z_decoded):
-        x = K.flatten(x)
-        z_decoded = K.flatten(z_decoded)
+    def vae_loss(self, x, pred):
+        x = tf.keras.backend.flatten(x)
+        pred = tf.keras.backend.flatten(pred)
         # Reconstruction loss
-        xent_loss = keras.losses.binary_crossentropy(x, z_decoded)
+        xent_loss = tf.keras.losses.binary_crossentropy(x, pred)
         return xent_loss
 
     # adds the custom loss to the class
     def call(self, inputs):
         x = inputs[0]
-        z_decoded = inputs[1]
-        loss = self.vae_loss(x, z_decoded)
+        pred = inputs[1]
+        loss = self.vae_loss(x, pred)
         self.add_loss(loss, inputs=inputs)
         return x
-
-
-def custom_loss_vae(codings_log_var, codings_mean, beta):
-    """
-    define cost function for VAE
-    :param codings_log_var: log variance of AE codeunit
-    :param codings_mean: mean of AE codeunit
-    :param beta: scalar to weight KLD term
-    :return: MSE + beta*KLD
-    """
-
-    def vae_loss(y_true, y_pred):
-        """ Calculate loss = reconstruction loss + KL loss for each data in minibatch """
-        # E[log P(X|z)]
-        mse_loss = K.mean(K.square(y_pred - y_true), axis=-1)
-        # D_KL(Q(z|X) || P(z|X)); calculate in closed form as both dist. are Gaussian
-        kld_loss = -0.5 * K.sum(1 + codings_log_var - K.exp(codings_log_var) - K.square(codings_mean), axis=-1)
-
-        return mse_loss + beta*kld_loss
-
-    return vae_loss
-
-
-class Sampling(keras.layers.Layer):
-    """
-    Class to random a sample from gaussian distribution with given mean and std. Needed for reparametrization trick
-    """
-
-    def call(self, inputs):
-        """Reparameterization trick by sampling from an isotropic unit Gaussian.
-           # Arguments
-               inputs (tensor): mean and log of variance of Q(z|X)
-           # Returns
-               z (tensor): sampled latent vector
-           """
-        mean, log_var = inputs
-        batch = tf.shape(mean)[0]
-        dim = tf.shape(mean)[1]
-        epsilon = tf.keras.backend.random_normal(shape=(batch, dim))
-        return mean + tf.exp(0.5 * log_var) * epsilon
-
 
 def temporalize(X, lookback):
     '''
@@ -426,11 +385,29 @@ class Autoencoder(object):
         # object for callback function during training
         loss_callback = LossCallback()
 
-        # the inference network (encoder) defines an approximate posterior distribution q(z/x), which takes as input an
-        # observation and outputs a set of parameters for the conditional distribution of the latent representation.
-        # Here, I simply model this distribution as a diagional Gaussian. Specifically, the interfence network outputs
-        # the mean and log-variance parameters of a factorized Gaussian (log-variance instead of the variance directly
-        # is for numerical stability)
+        # Encoder definition
+        x = Input(shape=len(x_train[0],), name="input")
+        h = Dense(self._h1, activation=self._activation, name="intermediate_encoder")(x)
+        h = Dense(self._h1, activation=self._activation, name="latent_encoder")(h)
+        z_mean = Dense(self._cu, name="mu_encoder")(h)
+        z_log_sigma = Dense(self._cu, name="sigma_encoder")(h)
+
+        # Sampling trick from latent space
+        def sampling(args):
+            z_mean, z_log_sigma = args
+            std_dev = 0.1
+            epsilon = K.random_normal(shape=(K.shape(z_mean)[0], self._cu),
+                                      mean=0., stddev=std_dev)
+            return z_mean + K.exp(z_log_sigma) * epsilon
+
+        z = Lambda(sampling)([z_mean, z_log_sigma])
+
+        # Create encoder
+        encoder = keras.Model(x, [z_mean, z_log_sigma, z], name='encoder')
+
+        encoder.summary()
+
+        # Decoder definition
 
         # Decoder definition
         decoder = Sequential([
@@ -440,88 +417,30 @@ class Autoencoder(object):
         ])
         decoder.summary()
 
-        # Encoder definition
-        x = Input(shape=len(x_train[0],), name="input")
-        h = Dense(self._h1, activation=self._activation, name="intermediate_encoder")(x)
-        h = Dense(self._h1, activation=self._activation, name="latent_decoder")(h)
-        # During optimization, we can sample from q(z/x) by first sampling from a unit Gaussian, and then multiplying
-        # by the standard deviation and adding the mean. This ensures the gradients could pass through the sample
-        # to the interence network parameters. This is called reparametrization trick
-        z_mu = Dense(self._cu)(h)
-        z_log_var = Dense(self._cu)(h)
-
-        # Harvard version ######
-
-        # sampling function
-        def sampling(args):
-            z_mu, z_log_var = args
-            epsilon_std = 1.0
-            epsilon = K.random_normal(shape=(K.shape(z_mu)[0], self._cu),
-                                      mean=0., stddev=epsilon_std)
-            return z_mu + K.exp(z_log_var) * epsilon
-
-        # sample vector from the latent distribution
-        z = Lambda(sampling)([z_mu, z_log_var])
-        x_pred = decoder(z)
-
-        # apply the custom loss to the input input and the decoded latent distribution sample
-        y = CustomVariationalLayer()([x, x_pred])
-
         # VAE model statement
-        vae = Model(x, y)
-        vae.compile(optimizer=Adam(learning_rate=self._alpha), loss='mse')
+        # instantiate VAE model
+        pred = decoder(encoder(x)[2])
+        vae = keras.Model(x, pred, name='vae_mlp')
 
-        # Tiao Version #######
-
-        # z_mu, z_log_var = KLDivergenceLayer()([z_mu, z_log_var])
-        # z_sigma = Lambda(lambda t: K.exp(.5 * t))(z_log_var)
-
-        #epsilon_std = 1.0
-        # eps = Input(tensor=K.random_normal(stddev=epsilon_std, shape=(K.shape(x)[0], self._cu)))
-        # z_eps = Multiply()([z_sigma, eps])
-        # z = Add()([z_mu, z_eps])
-        # vae = Model(inputs=[x, eps], outputs=x_pred)
-        #  x_pred = decoder(z)
-        #vae.compile(optimizer=Adam(learning_rate=self._alpha),
-                        #       loss=custom_loss_vae(z_sigma, z_mu, beta),
-                         #      metrics=[mse_loss, kld_loss(z_sigma, z_mu, beta)])
-
-
-
-        #vae.compile(optimizer=Adam(learning_rate=self._alpha), loss=nll)
-
-        # It does not matter the the type, but show us the vae
         vae.summary()
 
-        # During training, 1. we start by iterating over the dataset
-        # 2. during each iter, we pass the input data to the encoder to obtain a set of mean and log-variance
-        # parameters of the approximate posterior q(z/x)
-        # 3. we then apply the reparametrization trick to sample from q(z/x)
-        # 4. finally, we pass the reparam samples to the decoder to obtain the logits of the generative distrib p(x/z)
+        reconstruction_loss = keras.losses.mean_squared_error(x, pred)
+        reconstruction_loss *= len(x_train[0])
+        kl_loss = 1 + z_log_sigma - K.square(z_mean) - K.exp(z_log_sigma)
+        kl_loss = K.sum(kl_loss, axis=-1)
+        kl_loss *= -0.5
+        vae_loss = K.mean(reconstruction_loss + kl_loss)
+        vae.add_loss(vae_loss)
+        vae.compile(optimizer=Adam(learning_rate=self._alpha))
+
+        # It does not matter the type, but show us the vae
 
         # Harvard
-        history = vae.fit(x=x_train, y=None,
+        history = vae.fit(x=x_train,
                 shuffle=True,
-                epochs=self._steps,
-                batch_size=len(x_train))
-                #validation_data=(val_x, None))
-
-        # Tiao
-        #history = vae.fit(x=x_train,
-         #                            y=x_train,
-          #                           epochs=self._steps, verbose=0,
-           #                          batch_size=len(x_train),
-            #                         callbacks=[loss_callback])
-
-
-       # history = variational_ae.fit(x_train,
-        #            x_train,
-         #           shuffle=True,
-          #          epochs=self._steps,
-           #         batch_size=len(x_train)) #,
-                    #validation_data=(x_test, x_test))
-
-        encoder = Model(x, z_mu)
+                epochs=self._steps, verbose=0,
+                batch_size=len(x_train), callbacks=[loss_callback])
+                #validation_data=(val_x, None)
 
         # Get network prediction
         train_cu = encoder.predict(x_train)
@@ -543,13 +462,14 @@ class Autoencoder(object):
         # after training it is time to generate some test signal. We start by sampling a set of latent vector from the
         # unit Gaussian distribution p(z). The generator will then convert the latent sample z to logits of the
         # observation, giving a distribution p(x/z).
+        # Here the test set is not extracted by the distribution
         if 'x_test' in kwargs:
             test_rec = vae.predict(kwargs['x_test'])
             test_cu = encoder.predict(kwargs['x_test'])
 
-            return history, weights, biases, train_rec, train_cu, test_rec, test_cu
+            return history, weights, biases, train_rec, train_cu[2], test_rec, test_cu
         else:
-            return history, weights, biases, train_rec, train_cu
+            return history, weights, biases, train_rec, train_cu[2]
 
 
 class PrincipalComponentAnalysis(object):
@@ -643,14 +563,6 @@ def train_pca(calibPath, drPath, n_pc):
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
-
-        # save PCA scaling values
-        with open(drPath + "rotation_dr.txt", 'w') as f:
-            print(rot, file=f)
-        np.savetxt(drPath + "scale_dr.txt", scale)
-        np.savetxt(drPath + "offset_dr.txt", off)
-
-        print('PCA scaling values has been saved.')
         
     print('You can continue with customization.')
     return train_pc
@@ -713,7 +625,7 @@ def train_ae(calibPath, drPath, n_map_component):
         train_cu_plot = reaching_functions.rotate_xy_RH(train_cu, rot)
         # Applying scale
         scale = [r.width / np.ptp(train_cu_plot[:, 0]), r.height / np.ptp(train_cu_plot[:, 1])]
-        train_cu_plot = train_cu * scale
+        train_cu_plot = train_cu_plot * scale
         # Applying offset
         off = [r.width / 2 - np.mean(train_cu_plot[:, 0]), r.height / 2 - np.mean(train_cu_plot[:, 1])]
         train_cu_plot = train_cu_plot + off
@@ -724,8 +636,6 @@ def train_ae(calibPath, drPath, n_map_component):
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
-
-        print('AE scaling values has been saved.')
 
     print('You can continue with customization.')
     return train_cu
@@ -770,7 +680,7 @@ def train_vae(calibPath, drPath, n_map_component):
     # save weights and biases
     if not os.path.exists(drPath):
         os.makedirs(drPath)
-    for layer in range(3):
+    for layer in range(5):
         np.savetxt(drPath + "weights" + str(layer + 1) + ".txt", ws[layer])
         np.savetxt(drPath + "biases" + str(layer + 1) + ".txt", bs[layer])
 
@@ -799,14 +709,6 @@ def train_vae(calibPath, drPath, n_map_component):
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
-
-        # save VAE scaling values
-        #with open(drPath + "rotation_dr.txt", 'w') as f:
-         #   print(rot, file=f)
-        #np.savetxt(drPath + "scale_dr.txt", scale)
-        #np.savetxt(drPath + "offset_dr.txt", off)
-
-        print('VAE scaling values has been saved.')
 
     print('You can continue with customization.')
     return train_cu
@@ -840,12 +742,15 @@ def load_bomi_map(dr_mode, drPath):
         ws.append(pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values)
         ws.append(pd.read_csv(drPath + 'weights2.txt', sep=' ', header=None).values)
         ws.append(pd.read_csv(drPath + 'weights3.txt', sep=' ', header=None).values)
+        ws.append(pd.read_csv(drPath + 'weights4.txt', sep=' ', header=None).values)
         bs.append(pd.read_csv(drPath + 'biases1.txt', sep=' ', header=None).values)
         bs[0] = bs[0].reshape((bs[0].size,))
         bs.append(pd.read_csv(drPath + 'biases2.txt', sep=' ', header=None).values)
         bs[1] = bs[1].reshape((bs[1].size,))
         bs.append(pd.read_csv(drPath + 'biases3.txt', sep=' ', header=None).values)
         bs[2] = bs[2].reshape((bs[2].size,))
+        bs.append(pd.read_csv(drPath + 'biases4.txt', sep=' ', header=None).values)
+        bs[3] = bs[3].reshape((bs[3].size,))
 
         map = (ws, bs)
 
