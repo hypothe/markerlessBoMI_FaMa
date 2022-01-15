@@ -464,12 +464,12 @@ class Autoencoder(object):
         z = Lambda(sampling)([z_mu, z_log_var])
         x_pred = decoder(z)
 
-        # apply the custom loss to the input images and the decoded latent distribution sample
+        # apply the custom loss to the input input and the decoded latent distribution sample
         y = CustomVariationalLayer()([x, x_pred])
 
         # VAE model statement
         vae = Model(x, y)
-        vae.compile(optimizer='rmsprop', loss=None)
+        vae.compile(optimizer=Adam(learning_rate=self._alpha), loss='mse')
 
         # Tiao Version #######
 
@@ -629,17 +629,17 @@ def train_pca(calibPath, drPath, n_pc):
     plot_map = False
     if plot_map:
         rot = 0
-        train_pc = reaching_functions.rotate_xy_RH(train_pc, rot)
+        train_pc_plot = reaching_functions.rotate_xy_RH(train_pc, rot)
         # Applying scale
-        scale = [r.width / np.ptp(train_pc[:, 0]), r.height / np.ptp(train_pc[:, 1])]
-        train_pc = train_pc * scale
+        scale = [r.width / np.ptp(train_pc_plot[:, 0]), r.height / np.ptp(train_pc_plot[:, 1])]
+        train_pc_plot = train_pc_plot * scale
         # Applying offset
-        off = [r.width / 2 - np.mean(train_pc[:, 0]), r.height / 2 - np.mean(train_pc[:, 1])]
-        train_pc = train_pc + off
+        off = [r.width / 2 - np.mean(train_pc_plot[:, 0]), r.height / 2 - np.mean(train_pc_plot[:, 1])]
+        train_pc_plot = train_pc_plot + off
 
         # Plot latent space
         plt.figure()
-        plt.scatter(train_pc[:, 0], train_pc[:, 1], c='green', s=20)
+        plt.scatter(train_pc_plot[:, 0], train_pc_plot[:, 1], c='green', s=20)
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
@@ -710,28 +710,20 @@ def train_ae(calibPath, drPath, n_map_component):
     plot_ae = False
     if plot_ae:
         rot = 0
-        train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
-        #if cu == 3:
-        #    train_cu[2] = np.tanh(train_cu[2])
+        train_cu_plot = reaching_functions.rotate_xy_RH(train_cu, rot)
         # Applying scale
-        scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
-        train_cu = train_cu * scale
+        scale = [r.width / np.ptp(train_cu_plot[:, 0]), r.height / np.ptp(train_cu_plot[:, 1])]
+        train_cu_plot = train_cu * scale
         # Applying offset
-        off = [r.width / 2 - np.mean(train_cu[:, 0]), r.height / 2 - np.mean(train_cu[:, 1])]
-        train_cu = train_cu + off
+        off = [r.width / 2 - np.mean(train_cu_plot[:, 0]), r.height / 2 - np.mean(train_cu_plot[:, 1])]
+        train_cu_plot = train_cu_plot + off
 
         # Plot latent space
         plt.figure()
-        plt.scatter(train_cu[:, 0], train_cu[:, 1], c='green', s=20)
+        plt.scatter(train_cu_plot[:, 0], train_cu_plot[:, 1], c='green', s=20)
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
-
-        # save AE scaling values
-        with open(drPath + "rotation_dr.txt", 'w') as f:
-            print(rot, file=f)
-        np.savetxt(drPath + "scale_dr.txt", scale)
-        np.savetxt(drPath + "offset_dr.txt", off)
 
         print('AE scaling values has been saved.')
 
@@ -790,31 +782,29 @@ def train_vae(calibPath, drPath, n_map_component):
 
     # normalize latent space to fit the monitor coordinates
     # Applying rotation
-    plot_ae = False
-    if plot_ae:
+    plot_vae = True
+    if plot_vae:
         rot = 0
-        train_cu = reaching_functions.rotate_xy_RH(train_cu, rot)
-        #if cu == 3:
-        #    train_cu[2] = np.tanh(train_cu[2])
+        train_cu_plot = reaching_functions.rotate_xy_RH(train_cu, rot)
         # Applying scale
-        scale = [r.width / np.ptp(train_cu[:, 0]), r.height / np.ptp(train_cu[:, 1])]
-        train_cu = train_cu * scale
+        scale = [r.width / np.ptp(train_cu_plot[:, 0]), r.height / np.ptp(train_cu_plot[:, 1])]
+        train_cu_plot = train_cu_plot * scale
         # Applying offset
-        off = [r.width / 2 - np.mean(train_cu[:, 0]), r.height / 2 - np.mean(train_cu[:, 1])]
-        train_cu = train_cu + off
+        off = [r.width / 2 - np.mean(train_cu_plot[:, 0]), r.height / 2 - np.mean(train_cu_plot[:, 1])]
+        train_cu_plot = train_cu_plot + off
 
         # Plot latent space
         plt.figure()
-        plt.scatter(train_cu[:, 0], train_cu[:, 1], c='green', s=20)
+        plt.scatter(train_cu_plot[:, 0], train_cu_plot[:, 1], c='green', s=20)
         plt.title('Projections in workspace')
         plt.axis("equal")
         plt.show()
 
-        # save AE scaling values
-        with open(drPath + "rotation_dr.txt", 'w') as f:
-            print(rot, file=f)
-        np.savetxt(drPath + "scale_dr.txt", scale)
-        np.savetxt(drPath + "offset_dr.txt", off)
+        # save VAE scaling values
+        #with open(drPath + "rotation_dr.txt", 'w') as f:
+         #   print(rot, file=f)
+        #np.savetxt(drPath + "scale_dr.txt", scale)
+        #np.savetxt(drPath + "offset_dr.txt", off)
 
         print('VAE scaling values has been saved.')
 
@@ -824,6 +814,7 @@ def train_vae(calibPath, drPath, n_map_component):
 def load_bomi_map(dr_mode, drPath):
 
     if dr_mode == 'pca':
+
         map = pd.read_csv(drPath + 'weights1.txt', sep=' ', header=None).values
 
     elif dr_mode == 'ae':

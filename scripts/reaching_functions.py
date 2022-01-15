@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from scipy import signal as sgn
-
+import random
+from tensorflow.keras import backend as K
 import os
 
 
@@ -79,6 +80,15 @@ def update_cursor_position_custom(body, map, rot, scale, off):
         h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
         h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
         cu = np.dot(h, map[0][2]) + map[1][2]
+
+        def sampling(args):
+            z_mu, z_log_var = args
+            epsilon_std = 1.0
+            epsilon = K.random_normal(shape=(K.shape(z_mu)[0], len(cu)),
+                                      mean=0., stddev=epsilon_std)
+            return z_mu + K.exp(z_log_var) * epsilon
+
+        cu = sampling(cu, cu)
 
     # Applying rotation
     cu[0] = cu[0] * np.cos(np.pi / 180 * rot) - cu[1] * np.sin(np.pi / 180 * rot)
