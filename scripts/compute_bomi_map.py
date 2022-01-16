@@ -29,6 +29,7 @@ from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers import Adam, SGD
 from tensorflow.keras import backend as K
 from tensorflow.keras.utils import plot_model
+from keras.losses import  mse
 
 # assert tf.__version__ >= "2.0"
 
@@ -67,50 +68,6 @@ def compute_vaf(x, x_rec):
     vaf = 1 - (np.sum(np.sum((x_zm - x_rec_zm) ** 2)) / (np.sum(np.sum(x_zm ** 2))))
     return vaf * 100
 
-
-def mse_loss(y_true, y_pred):
-    """
-    function to save MSE term in history when training VAE
-    :param y_true: input signal
-    :param y_pred: input signal predicted by the VAR
-    :return: MSE
-    """
-    # E[log P(X|z)]. MSE loss term
-    return K.mean(K.square(y_pred - y_true), axis=-1)
-
-
-def kld_loss(codings_log_var, codings_mean, beta):
-    """
-    function to save KLD term in history when training VAE
-    :param codings_log_var: log variance of AE codeunit
-    :param codings_mean: mean of AE codeunit
-    :param beta: scalar to weight KLD term
-    :return: beta*KLD
-    """
-
-    def kld_loss(y_true, y_pred):
-        # D_KL(Q(z|X) || P(z|X)); KLD loss term
-        return beta * (-0.5 * K.sum(1 + codings_log_var - K.exp(codings_log_var) - K.square(codings_mean), axis=-1))
-
-    return kld_loss
-
-# construct a custom layer to calculate the loss
-class CustomVariationalLayer(tf.keras.layers.Layer):
-
-    def vae_loss(self, x, pred):
-        x = tf.keras.backend.flatten(x)
-        pred = tf.keras.backend.flatten(pred)
-        # Reconstruction loss
-        xent_loss = tf.keras.losses.binary_crossentropy(x, pred)
-        return xent_loss
-
-    # adds the custom loss to the class
-    def call(self, inputs):
-        x = inputs[0]
-        pred = inputs[1]
-        loss = self.vae_loss(x, pred)
-        self.add_loss(loss, inputs=inputs)
-        return x
 
 def temporalize(X, lookback):
     '''
@@ -156,8 +113,6 @@ class Autoencoder(object):
         else:
             self._seed = 17
 
-    # def my_bias(shape, dtype=dtype):
-    #     return K.random_normal(shape, dtype=dtype)
 
     def train_network(self, x_train, **kwargs):
         # tf.config.experimental_run_functions_eagerly(True)
@@ -367,6 +322,7 @@ class Autoencoder(object):
             return cnn_autoencoder_history, train_rec, train_cu
 
     def train_vae(self, x_train, **kwargs):
+
         # tf.config.experimental_run_functions_eagerly(True)
         tf.compat.v1.disable_eager_execution()  # xps does not work with eager exec on. tf 2.1 bug?
         tf.keras.backend.clear_session()  # For easy reset of notebook state.
@@ -395,10 +351,12 @@ class Autoencoder(object):
         # Sampling trick from latent space
         def sampling(args):
             z_mean, z_log_sigma = args
+            batch = tf.shape(z_mean)[0]
+            dim = tf.shape(z_mean)[1]
             std_dev = 0.1
-            epsilon = K.random_normal(shape=(K.shape(z_mean)[0], self._cu),
+            epsilon = K.random_normal(shape=(batch, dim),
                                       mean=0., stddev=std_dev)
-            return z_mean + K.exp(z_log_sigma) * epsilon
+            return z_mean + K.exp(z_log_sigma / 2.0) * epsilon
 
         z = Lambda(sampling)([z_mean, z_log_sigma])
 
@@ -424,22 +382,29 @@ class Autoencoder(object):
 
         vae.summary()
 
-        reconstruction_loss = keras.losses.mean_squared_error(x, pred)
-        reconstruction_loss *= len(x_train[0])
-        kl_loss = 1 + z_log_sigma - K.square(z_mean) - K.exp(z_log_sigma)
-        kl_loss = K.sum(kl_loss, axis=-1)
-        kl_loss *= -0.5
-        vae_loss = K.mean(reconstruction_loss + kl_loss)
-        vae.add_loss(vae_loss)
-        vae.compile(optimizer=Adam(learning_rate=self._alpha))
+        def vae_loss(input, output):
+            # Compute error in reconstruction
+            reconstruction_loss = mse(input, output)
+
+            # Compute the KL Divergence regularization term
+            kl_loss = - 0.5 * K.sum(1 + z_log_sigma - K.square(z_mean) - K.exp(z_log_sigma), axis=-1)
+
+            # Return the average loss over all images in batch
+            total_loss = (reconstruction_loss + 0.0001 * kl_loss)
+            return total_loss
+
+        vae.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
+        encoder.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
+        decoder.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
+        #vae.compile(optimizer=Adam(learning_rate=self._alpha))
 
         # It does not matter the type, but show us the vae
 
         # Harvard
-        history = vae.fit(x=x_train,
+        history = vae.fit(x=x_train,  y=x_train,
                 shuffle=True,
                 epochs=self._steps, verbose=0,
-                batch_size=len(x_train), callbacks=[loss_callback])
+                batch_size=8, callbacks=[loss_callback])
                 #validation_data=(val_x, None)
 
         # Get network prediction
@@ -467,7 +432,7 @@ class Autoencoder(object):
             test_rec = vae.predict(kwargs['x_test'])
             test_cu = encoder.predict(kwargs['x_test'])
 
-            return history, weights, biases, train_rec, train_cu[2], test_rec, test_cu
+            return history, weights, biases, train_rec, train_cu[2], test_rec, test_cu[2]
         else:
             return history, weights, biases, train_rec, train_cu[2]
 

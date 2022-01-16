@@ -82,10 +82,12 @@ def update_cursor_position_custom(body, map, rot, scale, off, dr_mode):
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
             mu_map = np.dot(h, map[0][2]) + map[1][2]
             log_sigma_map = np.dot(h, map[0][3]) + map[1][3]
+
             epsilon = random.gauss(0, 0.1)
-            cu = []
-            cu.append(mu_map[0] + np.exp(log_sigma_map[0]) * epsilon)
-            cu.append(mu_map[1] + np.exp(log_sigma_map[1]) * epsilon)
+
+            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0] / 2.0) * epsilon, \
+                             mu_map[1] + np.exp(log_sigma_map[1] / 2.0) * epsilon])
+
         else:
             h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
@@ -123,9 +125,11 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
             mu_map = np.dot(h, map[0][2]) + map[1][2]
             log_sigma_map = np.dot(h, map[0][3]) + map[1][3]
+
             epsilon = random.gauss(0, 0.1)
-            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0]) * epsilon, \
-                            mu_map[1] + np.exp(log_sigma_map[1]) * epsilon])
+
+            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0]/2.0) * epsilon, \
+                            mu_map[1] + np.exp(log_sigma_map[1]/2.0) * epsilon])
         else:
             h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
