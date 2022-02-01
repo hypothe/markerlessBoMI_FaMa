@@ -5,3 +5,8 @@ scripts/__pycache__/*
 Practice/
 .vscode/settings.json
 .vscode/launch.json
+
+# Video files
+*.mp4
+*.mkv
+*.avi
