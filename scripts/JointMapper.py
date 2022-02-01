@@ -18,6 +18,7 @@ from tkinter.messagebox import showinfo
 
 # For pygame
 import pygame
+from scripts.decorators import outer_control_loop
 # For reaching task
 from scripts.reaching import Reaching
 import scripts.reaching as reaching
@@ -55,7 +56,7 @@ class JointMapper(tk.Frame):
     class that defines the main tkinter window --> graphic with buttons etc..
     """
 
-    def __init__(self, win, n_map_components, *args, **kwargs):
+    def __init__(self, win, nmap_components, *args, **kwargs):
 
         self.video_camera_device = 0 # -> 0 for the camera
 
@@ -74,7 +75,7 @@ class JointMapper(tk.Frame):
         self.joints = np.zeros((5, 1))
         self.dr_mode = 'ae'
         self.font_size = 18
-        self.n_map_component = n_map_components
+        self.nmap_component = nmap_components
 
         self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_num_joints.config(font=("Times", self.font_size))
@@ -246,8 +247,7 @@ class JointMapper(tk.Frame):
             # This variable helps to check which joint to display
             self.check_summary = [self.check_nose.get(), self.check_eyes.get(), self.check_shoulders.get(),
                                     self.check_forefinger.get(), self.check_fingers.get()]
-            self.compute_calibration(self.calibPath, self.calib_duration, self.lbl_calib, self.num_joints, self.joints,
-                                self.check_summary, self.video_camera_device)
+            self.compute_calibration(active_joints=self.check_summary, drPath=self.calibPath)
             self.btn_map["state"] = "normal"
 
     def train_map(self):
@@ -260,17 +260,17 @@ class JointMapper(tk.Frame):
 
                 if self.check_alg.get() == 0:
                     self.drPath = self.calibPath + 'PCA/'
-                    train_cu = train_pca(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_pca(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'pca'
 
                 elif self.check_alg.get() == 1:
                     self.drPath = self.calibPath + 'AE/'
-                    train_cu = train_ae(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_ae(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'ae'
 
                 elif self.check_alg.get() == 2:
                     self.drPath = self.calibPath + 'VAE/'
-                    train_cu = train_vae(self.calibPath, self.drPath, self.n_map_component)
+                    train_cu = train_vae(self.calibPath, self.drPath, self.nmap_component)
                     self.dr_mode = 'vae'
 
                 # rotate, scale and offset the original features
@@ -295,7 +295,9 @@ class JointMapper(tk.Frame):
             self.newWindow.geometry("1000x500")
             self.newWindow.title("Customization")
             self.app.generate_window(self.newWindow, drPath=self.drPath, num_joints=self.num_joints,
-                                                joints=self.joints, dr_mode=self.dr_mode, video_camera_device=self.video_camera_device)
+                                                joints=self.joints, dr_mode=self.dr_mode,
+                                                video_camera_device=self.video_camera_device,
+                                                nmap_component=self.nmap_component)
         else:
             self.w = tk_utils.popupWindow(self.master, "Compute BoMI map first.")
             self.master.wait_window(self.w.top)
@@ -305,8 +307,8 @@ class JointMapper(tk.Frame):
         # implementation-specific action
         self.w = tk_utils.popupWindow(self.master, "This function is not implemented here.")
 
-
-    def compute_calibration(self, drPath, calib_duration, lbl_calib, num_joints, joints, active_joints, video_device=0):
+    @outer_control_loop(qbody_maxsize=-1, is_calib=True)
+    def compute_calibration(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0, drPath="", active_joints=None):
         """
         function called to collect calibration data from webcam
         :param drPath: path to save calibration file
@@ -314,41 +316,10 @@ class JointMapper(tk.Frame):
         :param lbl_calib: label in the main window that shows calibration time remaining
         :return:
         """
-        # Create object of openCV and Reaching (needed for terminating mediapipe thread)
-        # try using an external video source, if present
-        print("Using video device {}".format(video_device))
-
-        cap = cv_utils.VideoCaptureOpt(video_device)
-
-        r = Reaching()
-
+        
         # The clock will be used to control how fast the screen updates. Stopwatch to count calibration time elapsed
         clock = pygame.time.Clock()
         timer_calib = StopWatch()
-
-        # initialize MediaPipe Pose
-        mp_holistic = mp.solutions.holistic
-        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                        smooth_landmarks=False)
-
-        # initialize lock for avoiding race conditions in threads
-        lock = Lock()
-
-        # class member accessed by main and mediapipe threads that contains the current vector of body landmarks
-        
-        self.body = queue.Queue()
-        #body_calib = []  # initialize local variable (list of body landmarks during calibration)
-
-        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-        q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, calib_duration))
-        opencv_thread.start()
-        print("openCV thread started in calibration.")
-
-        # initialize thread for mediapipe operations
-        mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
-        mediapipe_thread.start()
 
         body_write_thread = Thread(target=save_bomi_map, args=(self.body, drPath, r))
         print("mediapipe thread started in calibration.")
@@ -358,8 +329,6 @@ class JointMapper(tk.Frame):
 
         print("main thread: Starting calibration...")
 
-        if not cap.isOpened():
-            raise IOError("Cannot open webcam")
         wind_name = "Group 12 cam"
         cv2.namedWindow(wind_name)
 
@@ -367,6 +336,13 @@ class JointMapper(tk.Frame):
         mp_drawing_styles = mp.solutions.drawing_styles
 
         body_write_thread.start()
+
+        mp_holistic = mp.solutions.holistic
+
+        screen_width, screen_height = pyautogui.size()
+
+        window_width = math.ceil(screen_width / 2)
+        window_height = math.ceil(screen_height / 2)
 
         while not r.is_terminated:
 
@@ -412,11 +388,9 @@ class JointMapper(tk.Frame):
                     mp_holistic.HAND_CONNECTIONS,
                     landmark_drawing_spec=mp_drawing_styles
                         .get_default_pose_landmarks_style())
+            
             # Flip the image horizontally for a selfie-view display.
-            screen_width, screen_height = pyautogui.size()
-
-            window_width = math.ceil(screen_width / 2)
-            window_height = math.ceil(screen_height / 2)
+            frame = cv2.flip(frame, 1)
 
             cv2.imshow(wind_name, frame)
             cv2.moveWindow(wind_name, int(window_width / 2), int(window_height / 4))
@@ -425,29 +399,14 @@ class JointMapper(tk.Frame):
                 break  # esc to quit
 
             # update time elapsed label
-            time_remaining = int((calib_duration - timer_calib.elapsed_time) / 1000)
-            lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
-            lbl_calib.update()
+            time_remaining = int((self.calib_duration - timer_calib.elapsed_time) / 1000)
+            self.lbl_calib.configure(text='Calibration time: ' + str(time_remaining))
+            self.lbl_calib.update()
 
             # --- Limit to 50 frames per second
             clock.tick(50)
 
-        opencv_thread.join()
-        mediapipe_thread.join()
         body_write_thread.join()
-
-        cv2.destroyAllWindows()
-        # Stop the game engine and release the capture
-        holistic.close()
-        print("pose estimation object released in calibration.")
-        cap.release()
-        print("openCV object released in calibration.")
-
-        # print calibration file
-        #body_calib = np.array(body_calib)
-        #if not os.path.exists(drPath):
-        #    os.makedirs(drPath)
-        #np.savetxt(drPath + "Calib.txt", body_calib)
 
         print('Calibration finished. You can now train BoMI forward map.')
     
@@ -463,7 +422,7 @@ class CustomizationApplication(tk.Frame):
         self.current_image_data = SharedDetImage()
         self.body = queue.Queue()
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, nmap_component):
         self.w = tk_utils.popupWindow(self.master, "This function is not implemented here.")
 
 

@@ -62,12 +62,14 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 
 				body_list = []
 				debug_frame_analyzed+=1
+				data_valid = True
 
 				result = None
 				with image_data.lock:
 					# Flip the image horizontally for a later selfie-view display, and convert the BGR image to RGB.
 					image_data.image_id = debug_frame_analyzed
-					image_data.image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
+					#image_data.image = cv2.cvtColor(cv2.flip(curr_frame, 1), cv2.COLOR_BGR2RGB)
+					image_data.image = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
 					# To improve performance, optionally mark the image as not writeable to pass by reference.
 					image_data.image.flags.writeable = False
 					image_data.result = result = holistic.process(image_data.image)
@@ -84,7 +86,7 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.NOSE].y)
 					except AttributeError:
 						# silent fail is landmark was not in view, ignore even good landmarks in this pass
-						continue
+						data_valid = False
 				if joints[1, 0] == 1:
 					try:
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_EYE].x)
@@ -92,7 +94,8 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].x)
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_EYE].y)
 					except AttributeError:
-						continue
+						data_valid = False
+
 				if joints[2, 0] == 1:
 					try:
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.RIGHT_SHOULDER].x)
@@ -100,13 +103,15 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].x)
 						body_list.append(result.pose_landmarks.landmark[mp_holistic.PoseLandmark.LEFT_SHOULDER].y)
 					except AttributeError:
-						continue
+						data_valid = False
+
 				if joints[3, 0] == 1 or joints[4, 0] == 1:
 					try:
 						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].x)
 						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.INDEX_FINGER_TIP].y)
 					except AttributeError:
-						continue
+						data_valid = False
+
 				if joints[4, 0] == 1:
 					try:
 						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.THUMB_TIP].x)
@@ -118,14 +123,15 @@ def mediapipe_forwardpass(image_data, q_body, holistic, mp_holistic, lock, q_fra
 						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].x)
 						body_list.append(result.right_hand_landmarks.landmark[mp_holistic.HandLandmark.PINKY_TIP].y)
 					except AttributeError:
-						continue
+						data_valid = False
 
-				try:
-					q_body.put(np.array(body_list), block=False)
-				except queue.Full:
-					# silent failing in case of queue not being read
-					# (generally happens when exiting)
-					pass
+				if data_valid:
+					try:
+						q_body.put(np.array(body_list), block=False)
+					except queue.Full:
+						# silent failing in case of queue not being read
+						# (generally happens when exiting)
+						pass
 
 				# Skip the next n frames, in order to keep the same fps as the
 				# video source

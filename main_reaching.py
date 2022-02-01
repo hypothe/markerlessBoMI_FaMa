@@ -17,6 +17,7 @@ from scripts.KeyBoard_Top import KeyBoard_Top
 import scripts.tk_utils as tk_utils
 from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
+from scripts.decorators import outer_control_loop
 import tkinter as tk
 from tkinter import Label, Text, Button
 from tkinter import messagebox
@@ -29,8 +30,8 @@ import copy
 
 class BoMIReaching(JointMapper):
     
-    def __init__(self, win, n_map_components, *args, **kwargs):
-        JointMapper.__init__(self, win, n_map_components, *args, **kwargs)
+    def __init__(self, win, nmap_components, *args, **kwargs):
+        JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
         self.app = CustomizationApplicationReaching(self)
         # mouse control
         
@@ -105,18 +106,16 @@ class BoMIReaching(JointMapper):
             self.master.wait_window(self.w.top)
             if self.w.status:
                 if self.check_mouse.get() == False:
-                    self.start_reaching(self.drPath, self.lbl_tgt, self.num_joints, self.joints,
-                                        self.dr_mode, self.video_camera_device)
+                    self.start_reaching()
                 else:
-                    self.start_mouse_control(self.drPath, self.num_joints, self.joints, self.dr_mode,
-                                             self.video_camera_device, self.check_kb.get())                       
+                    self.start_mouse_control(keyboard_bool=self.check_kb.get())
         else:
             self.w = tk_utils.popupWindow(self.master, "Perform customization first.")
             self.master.wait_window(self.w.top)
             self.btn_start["state"] = "disabled"
 
-            
-    def start_mouse_control(self, drPath, num_joints, joints, dr_mode, video_device=0, keyboard_bool=False):
+    @outer_control_loop()  
+    def start_mouse_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0, keyboard_bool=False):
         """
         function to perform online cursor control
         :param drPath: path where to load the BoMI forward map and customization values
@@ -126,53 +125,15 @@ class BoMIReaching(JointMapper):
         """
         print("Mouse control active")
 
-        # Create object of openCV, Reaching class and filter_butter3
-        cap = cv_utils.VideoCaptureOpt(video_device)
-
-        r = Reaching()
-        filter_curs = FilterButter3("lowpass_4")
-
-        # initialize targets and the reaching log file header
-        reaching_functions.initialize_targets(r)
-        reaching_functions.write_header(r)
-
-        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
-        map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
-
-        # initialize MediaPipe Pose
-        mp_holistic = mp.solutions.holistic
-        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                        smooth_landmarks=False, refine_face_landmarks=True)
-
         # Create eye-counters objects
         left_eye = bd_utils.Eye(300, 1000) #ms
         right_eye = bd_utils.Eye(300, 1000) #ms
 
         # load scaling values for covering entire monitor workspace
-        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")
-        scale_dr = self.map_workspace2screenspace_offsetScale(scale_dr)
-        off_dr = self.map_workspace2screenspace_offsetScale(off_dr)
+        scale = self.map_workspace2screenspace_offsetScale(scale)
+        off = self.map_workspace2screenspace_offsetScale(off)
 
-        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "custom")
-        screen_width, screen_height = pyautogui.size()
-
-        # initialize lock for avoiding race conditions in threads
-        lock = Lock()
-
-        # gclass member accessed by main and mediapipe threads that contains the current vector of body landmarks
-        self.body = queue.Queue(maxsize=1) # size=1 since we're interested only in the most recent value
-
-        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-        q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r))
-        opencv_thread.start()
-        print("openCV thread started in practice.")
-
-        # initialize thread for mediapipe operations
-        mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
-        mediapipe_thread.start()
-        print("mediapipe thread started in practice.")
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 
         # Keyboard Thread
         if keyboard_bool:
@@ -212,7 +173,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, screen_width, screen_height, dr_mode)
+                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, screen_width, screen_height)
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 # Filter the cursor
@@ -235,7 +196,7 @@ class BoMIReaching(JointMapper):
                     
                     frame.flags.writeable = True
 
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    frame = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_RGB2BGR)
                     cv2.imshow(win_name, frame)
                     cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
 
@@ -277,17 +238,9 @@ class BoMIReaching(JointMapper):
         if keyboard_bool:
             kb_app.cleanup()
 
-        opencv_thread.join()
-        mediapipe_thread.join()
 
-        print("game engine object released in practice.")
-        holistic.close()
-        print("pose estimation object released in practice.")
-        cap.release()
-        cv2.destroyAllWindows()
-        print("openCV object released in practice.")
-
-    def start_reaching(self, drPath, lbl_tgt, num_joints, joints, dr_mode, video_device=0):
+    @outer_control_loop()
+    def start_reaching(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
         """
         function to perform online cursor control - practice
         :param drPath: path where to load the BoMI forward map and customization values
@@ -299,12 +252,6 @@ class BoMIReaching(JointMapper):
         print("Game active")
 
         ############################################################
-
-        # Create object of openCV, Reaching class and filter_butter3
-        cap = cv_utils.VideoCaptureOpt(video_device)
-
-        r = Reaching()
-        filter_curs = FilterButter3("lowpass_4")
 
         # Open a new window
         size = (r.width, r.height)
@@ -324,37 +271,7 @@ class BoMIReaching(JointMapper):
         reaching_functions.initialize_targets(r)
         reaching_functions.write_header(r)
 
-        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
-        map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
-
-        # initialize MediaPipe Pose
-        mp_holistic = mp.solutions.holistic
-        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                        smooth_landmarks=False)
-
-
-        # load scaling values for covering entire monitor workspace
-        # load scaling values for covering entire monitor workspace
-        rot_dr, scale_dr, off_dr = compute_bomi_map.read_transform(drPath, "dr")
-        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(drPath, "custom")
-
-        # initialize lock for avoiding race conditions in threads
-        lock = Lock()
-
-        # object member accessed by main and mediapipe threads that contains the current vector of body landmarks
-        self.body = queue.Queue(maxsize=1)
-
-        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-        q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r))
-        opencv_thread.start()
-        print("openCV thread started in practice.")
-
-        # initialize thread for mediapipe operations
-        mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS)))
-        mediapipe_thread.start()
-        print("mediapipe thread started in practice.")
+        rot_custom, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 
         # initialize thread for writing reaching log file
         wfile_thread = Thread(target=write_practice_files, args=(r, timer_practice))
@@ -391,8 +308,8 @@ class BoMIReaching(JointMapper):
                     pass
 
                 # apply BoMI forward map to body vector to obtain cursor position.
-                r.crs_x, r.crs_y = reaching_functions.update_cursor_position  \
-                    (r.body, map, rot_dr, scale_dr, off_dr, rot_custom, scale_custom, off_custom, r.width, r.height)
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
+                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, r.width, r.height)
                 # Check if the crs is bouncing against any of the 4 walls:
                 
                 if r.crs_x >= r.width:
@@ -444,30 +361,22 @@ class BoMIReaching(JointMapper):
 
                 # update label with number of targets remaining
                 tgt_remaining = 248 - r.trial + 1
-                lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
-                lbl_tgt.update()
+                self.lbl_tgt.configure(text='Remaining targets: ' + str(tgt_remaining))
+                self.lbl_tgt.update()
 
                 # --- Limit to 50 frames per second
                 clock.tick(self.refresh_rate)
 
-        opencv_thread.join()
-        mediapipe_thread.join()
         wfile_thread.join()
         # Once we have exited the main program loop, stop the game engine and release the capture
         pygame.quit()
         print("game engine object released in practice.")
-        # pose.close()
-        holistic.close()
-        print("pose estimation object released in practice.")
-        cap.release()
-        cv2.destroyAllWindows()
-        print("openCV object released in practice.")
 
 class CustomizationApplicationReaching(CustomizationApplication):
     def __init__(self, mainTk):
         CustomizationApplication.__init__(self, mainTk)
 
-    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device):
+    def generate_window(self, parent, drPath, num_joints, joints, dr_mode, video_camera_device, nmap_component):
         tk.Frame.__init__(self, parent)
         self.video_camera_device = video_camera_device
         self.parent = parent
@@ -476,6 +385,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
         self.joints = joints
         self.dr_mode = dr_mode
         self.font_size = 18
+        self.nmap_component = nmap_component
 
         self.lbl_rot = Label(parent, text='Rotation ')
         self.lbl_rot.config(font=("Times", self.font_size))
@@ -561,64 +471,22 @@ class CustomizationApplicationReaching(CustomizationApplication):
         return self.txt_oy.get("1.0", "end-1c")
 
     def customization(self):
-        self.initialize_customization(self.dr_mode, self.drPath, self.num_joints, self.joints, self.video_camera_device)
+        self.initialize_customization()
 
     def save_parameters(self):
         self.save_custom_parameters(self.drPath)
         self.parent.destroy()
         self.mainTk.btn_start["state"] = "normal"
 
-    def initialize_customization(self, dr_mode, drPath, num_joints, joints, video_device):
+    @outer_control_loop()
+    def initialize_customization(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0, drPath=""):
         """
         initialize objects needed for online cursor control. Start all the customization threads as well
         :param self: CustomizationApplication tkinter Frame. needed to retrieve textbox values programmatically
         :param drPath: path to load the BoMI forward map
         :return:
         """
-
-        # Create object of openCV, Reaching class and filter_butter3
-        cap = cv_utils.VideoCaptureOpt(video_device)
-
-        r = Reaching()
         reaching_functions.initialize_targets(r)
-        
-        filter_curs = FilterButter3("lowpass_4")
-        # load BoMI forward map parameters for converting body landmarks into cursor coordinates
-        map = compute_bomi_map.load_bomi_map(dr_mode, drPath)
-
-        # initialize MediaPipe Pose
-        mp_holistic = mp.solutions.holistic
-        holistic = mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5,
-                                        smooth_landmarks=False)
-
-        # load scaling values saved after training AE for covering entire monitor workspace
-        rot = pd.read_csv(drPath + 'rotation_dr.txt', sep=' ', header=None).values
-        scale = pd.read_csv(drPath + 'scale_dr.txt', sep=' ', header=None).values
-        scale = np.reshape(scale, (scale.shape[0],))
-        off = pd.read_csv(drPath + 'offset_dr.txt', sep=' ', header=None).values
-        off = np.reshape(off, (off.shape[0],))
-
-        print("SCALE: {}".format(scale))
-
-        # initialize lock for avoiding race conditions in threads
-        lock = Lock()
-
-        # class member accessed by main and mediapipe threads that contains the current vector of body landmarks
-        
-        self.body = queue.Queue(maxsize=1)
-
-
-        # start thread for OpenCV. current frame will be appended in a queue in a separate thread
-        q_frame = queue.Queue()
-        opencv_thread = Thread(target=cv_utils.get_data_from_camera, args=(cap, q_frame, r, None))
-        opencv_thread.start()
-        print("openCV thread started in customization.")
-
-        # initialize thread for mediapipe operations
-        mediapipe_thread = Thread(target=mediapipe_utils.mediapipe_forwardpass,
-                                args=(self.current_image_data, self.body, holistic, mp_holistic, lock, q_frame, r, num_joints, joints, cap.get(cv2.CAP_PROP_FPS), None))
-        mediapipe_thread.start()
-        print("mediapipe thread started in customization.")
 
         pygame.init()
 
@@ -725,16 +593,11 @@ class CustomizationApplicationReaching(CustomizationApplication):
                 # --- Limit to 50 frames per second
                 clock.tick(self.refresh_rate)
 
-        opencv_thread.join()
-        mediapipe_thread.join()
+       
         # Once we have exited the main program loop, stop the game engine and release the capture
         pygame.quit()
         print("game engine object released in customization.")
-        holistic.close()
-        print("pose estimation object released terminated in customization.")
-        cap.release()
-        cv2.destroyAllWindows()
-        print("openCV object released in customization.")
+       
 
     def save_custom_parameters(self, drPath):
         """
@@ -765,7 +628,7 @@ if __name__ == "__main__":
     # initialize tkinter window
     win = tk_utils.win_init("BoMi Settings")
 
-    obj = BoMIReaching(win=win, n_map_components=2)
+    obj = BoMIReaching(win=win, nmap_components=2)
 
     def on_closing():
         if messagebox.askokcancel("Quit", "Do you want to quit?"):

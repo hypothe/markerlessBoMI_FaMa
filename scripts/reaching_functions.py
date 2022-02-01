@@ -63,6 +63,10 @@ def set_target_reaching(r):
         r.tgt_x = r.width / 2
         r.tgt_y = r.height / 2  # Center of the screen
 
+def saturate(x, min_x, max_x):
+    return  x < min_x and min_x or \
+            x > max_x and max_x or \
+            x
 
 def filter_cursor(r, filter_curs):
 
@@ -72,38 +76,11 @@ def filter_cursor(r, filter_curs):
     return filter_curs.filtered_value[0], filter_curs.filtered_value[1]
 
 
-def update_cursor_position_custom(body, map, rot, scale, off, dr_mode):
-
-    if type(map) != tuple:
-        cu = np.dot(body, map)
-    else:
-        if dr_mode == "vae":
-            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
-            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
-            mu_map = np.dot(h, map[0][2]) + map[1][2]
-            log_sigma_map = np.dot(h, map[0][3]) + map[1][3]
-
-            epsilon = random.gauss(0, 0.1)
-
-            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0] / 2.0) * epsilon, \
-                             mu_map[1] + np.exp(log_sigma_map[1] / 2.0) * epsilon])
-
-        else:
-            h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
-            h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
-            cu = np.dot(h, map[0][2]) + map[1][2]
-
-    # Applying rotation
-    cu[0] = cu[0] * np.cos(np.pi / 180 * rot) - cu[1] * np.sin(np.pi / 180 * rot)
-    cu[1] = cu[0] * np.sin(np.pi / 180 * rot) + cu[1] * np.cos(np.pi / 180 * rot)
-
-    # Applying scale
-    cu = cu * scale
-
-    # Applying offset
-    cu = cu + off
-
-    return cu[0], cu[1]
+def update_cursor_position_custom(body, map, rot, scale, off):
+    """
+    Wrapper for compatibility
+    """
+    return get_mapped_values(body, map, rot, scale, off)
 
 def rotate_xy_RH(xy, rot):
     tmp_x, tmp_y = xy[0], xy[1]
@@ -115,10 +92,17 @@ def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
     # edit: screen space is left-handed! remember that in rotation!
     return rotate_xy_RH(xy, -rot)
 
-def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height, dr_mode):
+def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height):
+    """
+    Wrapper for compatibility
+    """
+    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, (win_width, win_height))
 
+
+def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p_range=None):
     if type(map) != tuple:
         cu = np.dot(body, map)
+        
     else:
         if dr_mode == "vae":
             h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
@@ -135,26 +119,28 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])
             cu = np.dot(h, map[0][2]) + map[1][2]
 
+    p_range = p_range is None and [0]*len(cu) or p_range
+
     # Applying rotation, scale and offset computed after AE training
-    cu = rotate_xy_RH(cu, rot_ae)
-    cu = cu * scale_ae
-    cu = cu + off_ae
+    cu = rotate_xy_RH(cu, rot1)
+    cu = cu * scale1
+    cu = cu + off1
     
     # Applying rotation, scale and offset computed after customization
     # normalize the position wrt the screen space
-    cu[0] -= win_width/2.0
-    cu[1] -= win_height/2.0
+    for i in range(len(cu)):
+        cu[i] -= p_range[i]/2.0
     # edit: screen space is left-handed! remember that in rotation!
-    cu = rotate_xy_LH(cu, rot_custom)
+    cu = rotate_xy_LH(cu, rot2)
 
-    cu = cu * scale_custom
+    cu = cu * scale2
     
-    cu = cu + off_custom
-    cu[0] += win_width/2.0
-    cu[1] += win_height/2.0
+    cu = cu + off2
 
-    return cu[0], cu[1]
+    for i in range(len(cu)):
+        cu[i] += p_range[i]/2.0
 
+    return cu
 
 def write_practice_files(r, body, timer_practice):
 

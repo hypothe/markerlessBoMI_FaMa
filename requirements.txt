@@ -9,3 +9,4 @@ mediapipe>=0.8.9.1
 tensorflow
 sklearn
 tk
+python-socketio[client]
