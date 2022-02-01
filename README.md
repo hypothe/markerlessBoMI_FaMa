@@ -1,6 +1,6 @@
 # Abstract
 
-**IMPORTANT**: the following installation steps come from the original repository and are left here in case of the need for a "bare metal" install. However, it's highly suggested to use the Docker image provided or, if you are interested in using the whole [Body-Machine Interface](https://github.com/hypothe/biorob_group12_bomi) project, give a look at its repository and the provided docker-compose.
+**IMPORTANT**: the following installation steps come from the original repository and are left here in case of the need for a "bare metal" install. However, it's highly suggested to use the Docker image provided or, if you are interested in using the whole [Body-Machine Interface](https://github.com/hypothe/bomi-cam-unity3dof-control) project, give a look at its repository and the provided docker-compose.
 
 # UBUNTU installation steps:
 
@@ -246,4 +246,4 @@ Right now, in the docker environment, using the external video source instead of
 
 # The whole project
 
-This is a submodule of the project [Body-Machine Interface](https://github.com/hypothe/biorob_group12_bomi).
+This is a submodule of the project [Body-Machine Interface](https://github.com/hypothe/bomi-cam-unity3dof-control).
