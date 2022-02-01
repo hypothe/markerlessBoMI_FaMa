@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest-gpu-jupyter
+FROM tensorflow/tensorflow:latest-gpu
 
 ENV HOME=/root
 ARG DEBIAN_FRONTEND=noninteractive
@@ -12,7 +12,6 @@ WORKDIR ${HOME}
 RUN	apt-get update && apt -y install python3-pip \
 	&& apt install -y build-essential libsm6 libssl-dev libffi-dev python3-dev python3-tk ffmpeg xauth xxd
 
-#RUN git clone --branch server-test https://github.com/hypothe/markerlessBoMI_FaMa.git ${WS}
 COPY . ${WS}
 
 # necessary, somehow, for the xserver called by pyautogui
@@ -24,7 +23,5 @@ RUN touch ~/.Xauthority \
 WORKDIR ${WS}
 RUN pip install --upgrade pip \
 	&& pip install -r requirements.txt
-
-RUN mkdir /root/videos
 
 ENTRYPOINT [ "bash" ]
