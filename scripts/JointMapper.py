@@ -124,9 +124,10 @@ class JointMapper(tk.Frame):
         self.lbl_duration.grid(row=1, column=4, columnspan=1, pady=(20, 30), sticky='w')
 
         self.ent_duration_str = tk.StringVar()
-        self.ent_duration = Entry(win, width=20, textvariable=self.ent_duration_str)
+        self.ent_duration = Entry(win, width=5, textvariable=self.ent_duration_str)
         self.ent_duration.config(font=("Times", self.font_size))
         self.ent_duration.grid(row=1, column=5, pady=(20, 30), columnspan=1, sticky='w')
+        self.ent_duration.insert(INSERT, "10")
 
         self.btn_duration = Button(win, text="Set", command=self.set_calib_time, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_duration.config(font=("Times", self.font_size))
@@ -270,10 +271,14 @@ class JointMapper(tk.Frame):
     def train_map(self):
         # check whether calibration file exists first
         if os.path.isfile(self.calibPath + "Calib.txt"):
-            self.w = tk_utils.popupWindow(self.master, "You will now train BoMI map")
+            note = ""
+            if self.check_alg.get() == 1:
+                note="\nNOTE: this might take a few seconds"
+            elif self.check_alg.get() == 2:
+                note="\nNOTE: this might take a few minutes!"
+            self.w = tk_utils.popupWindow(self.master, "You will now train BoMI map"+note)
             self.master.wait_window(self.w.top)
             if self.w.status:
-                print(self.check_alg.get())
 
                 if self.check_alg.get() == 0:
                     self.drPath = self.calibPath + 'PCA/'
@@ -361,13 +366,19 @@ class JointMapper(tk.Frame):
         window_width = math.ceil(screen_width / 2)
         window_height = math.ceil(screen_height / 2)
 
+        is_timer_on = False
+
         while not r.is_terminated:
 
             # safe access to the current image and results, since they can
             # be modified by the mediapipe_forwardpass thread
             with self.current_image_data.lock:
-                if self.current_image_data.image_id == 1:
+                # the timer starts the first time an image is received
+                # accounting for possible delays in the init
+                if not is_timer_on:
+                    is_timer_on = True
                     timer_calib.start()
+
                 frame = copy.deepcopy(self.current_image_data.image)
                 results = copy.deepcopy(self.current_image_data.result)
 
@@ -424,6 +435,8 @@ class JointMapper(tk.Frame):
             clock.tick(50)
 
         body_write_thread.join()
+        self.lbl_calib.configure(text='Calibration time: ' + str(0))
+        self.lbl_calib.update()
 
         print('Calibration finished. You can now train BoMI forward map.')
     
