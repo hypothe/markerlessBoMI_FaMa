@@ -152,12 +152,6 @@ class JointMapper(tk.Frame):
         self.btn_start.config(font=("Times", self.font_size))
         self.btn_start.grid(row=4, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
-        # set label for number of target remaining
-        self.lbl_tgt = Label(win, text='Remaining targets: ', activebackground='#4682b4', bg='#abcdef')
-        self.lbl_tgt.config(font=("Times", self.font_size))
-        self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
-
-
         # Camera video input
         self.btn_cam = Button(win, text='Ext. Video Source', command=self.selectVideoFile,activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_cam.config(font=("Times", self.font_size))
@@ -241,7 +235,7 @@ class JointMapper(tk.Frame):
 
     def calibration(self):
         # start calibration dance - collect webcam data
-        self.w = tk_utils.popupWindow(self.master, "You will now start calibration. \n You have the possibility to control the virtual mouse. \n If you are interested, after the calibration, select the checkbox 'Mouse Control'.")
+        self.w = tk_utils.popupWindow(self.master, "You will now start calibration.")
         self.master.wait_window(self.w.top)
         if self.w.status:
             # This variable helps to check which joint to display

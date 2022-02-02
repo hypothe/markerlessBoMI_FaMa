@@ -33,6 +33,13 @@ class BoMIReaching(JointMapper):
     def __init__(self, win, nmap_components, *args, **kwargs):
         JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
         self.app = CustomizationApplicationReaching(self)
+
+        # set label for number of target remaining
+        self.lbl_tgt = Label(win, text='', activebackground='#4682b4', bg='#abcdef')
+        self.lbl_tgt.config(font=("Times", self.font_size))
+        self.lbl_tgt.grid(row=4, column=2, pady=(20, 30), columnspan=2, sticky='w')
+
+
         # mouse control
         
         self.check_mouse = tk.BooleanVar()
@@ -173,7 +180,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, screen_width, screen_height)
+                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, screen_width, screen_height, dr_mode=self.dr_mode)
                 # Check if the crs is bouncing against any of the 4 walls:
 
                 # Filter the cursor
@@ -309,7 +316,7 @@ class BoMIReaching(JointMapper):
 
                 # apply BoMI forward map to body vector to obtain cursor position.
                 r.crs_x, r.crs_y = reaching_functions.update_cursor_position \
-                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, r.width, r.height)
+                    (r.body, map, rot, scale, off, rot_custom, scale_custom, off_custom, r.width, r.height, dr_mode=self.dr_mode)
                 # Check if the crs is bouncing against any of the 4 walls:
                 
                 if r.crs_x >= r.width:
@@ -520,7 +527,7 @@ class CustomizationApplicationReaching(CustomizationApplication):
                     pass
 
                 # apply BoMI forward map to body vector to obtain cursor position
-                r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off, self.dr_mode)
+                r.crs_x, r.crs_y = reaching_functions.update_cursor_position_custom(r.body, map, rot, scale, off, dr_mode=self.dr_mode)
 
                 # Apply extra customization according to textbox values (try/except allows to catch invalid inputs)
                 try:

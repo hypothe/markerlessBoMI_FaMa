@@ -76,11 +76,11 @@ def filter_cursor(r, filter_curs):
     return filter_curs.filtered_value[0], filter_curs.filtered_value[1]
 
 
-def update_cursor_position_custom(body, map, rot, scale, off):
+def update_cursor_position_custom(body, map, rot, scale, off, dr_mode=""):
     """
     Wrapper for compatibility
     """
-    return get_mapped_values(body, map, rot, scale, off)
+    return get_mapped_values(body, map, rot, scale, off, dr_mode)
 
 def rotate_xy_RH(xy, rot):
     tmp_x, tmp_y = xy[0], xy[1]
@@ -92,14 +92,14 @@ def rotate_xy_LH(xy, rot): # left hand frame (as per the screen)
     # edit: screen space is left-handed! remember that in rotation!
     return rotate_xy_RH(xy, -rot)
 
-def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height):
+def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, win_width, win_height, dr_mode=""):
     """
     Wrapper for compatibility
     """
-    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, (win_width, win_height))
+    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, (win_width, win_height), dr_mode)
 
 
-def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p_range=None):
+def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p_range=None, dr_mode=""):
     if type(map) != tuple:
         cu = np.dot(body, map)
         
@@ -112,8 +112,9 @@ def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p
 
             epsilon = random.gauss(0, 0.1)
 
-            cu = np.asarray([mu_map[0] + np.exp(log_sigma_map[0]/2.0) * epsilon, \
-                            mu_map[1] + np.exp(log_sigma_map[1]/2.0) * epsilon])
+            cu = [mu + np.exp(l_sig/2.0) * epsilon for mu, l_sig in zip(mu_map, log_sigma_map)]
+
+            cu = np.asarray(cu)
         else:
             h = np.tanh(np.dot(body, map[0][0]) + map[1][0])
             h = np.tanh(np.dot(h, map[0][1]) + map[1][1])

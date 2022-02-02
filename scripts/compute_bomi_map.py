@@ -657,7 +657,7 @@ def train_vae(calibPath, drPath, n_map_component):
 
     # normalize latent space to fit the monitor coordinates
     # Applying rotation
-    plot_vae = True
+    plot_vae = False
     if plot_vae:
         rot = 0
         train_cu_plot = reaching_functions.rotate_xy_RH(train_cu, rot)

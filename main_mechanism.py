@@ -34,14 +34,6 @@ class BoMIMechanism(JointMapper):
 	def __init__(self, win, nmap_components, ns_server, *args, **kwargs):
 		JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
 		
-		# DEBUG
-		#video_name = "/root/videos/calib_bomi.mp4"
-		#self.video_camera_device = video_name
-		#self.ent_cam.insert(INSERT, video_name)
-
-		#self.refresh_rate = 30 # frames per second at max
-		#self.interframe_delay = 1/self.refresh_rate 
-		# end - DEBUG
 
 		self.app = CustomizationApplicationMechanism(self)
 		# -- Socket handler -- #
@@ -95,8 +87,6 @@ class BoMIMechanism(JointMapper):
 	@outer_control_loop()
 	def start_mechanism_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 			
-			# DEBUG:
-			# self.sio.subscribeJVA() # inform server we're interested in updates
 			render_frame = False
 
 			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
@@ -150,11 +140,9 @@ class BoMIMechanism(JointMapper):
 						break  # esc to quit
 
 				# -- Mapping --
-				#scale_custom = [s*slider_length/(2.0*math.pi) for s in scale_custom]
-				#off_custom   = [s + r.height/2.0 for s in off_custom]
 				joint_values = reaching_functions.get_mapped_values(r.body, map, \
 																														rot, scale, off, \
-																														0, scale_custom, off_custom)
+																														0, scale_custom, off_custom, dr_mode=self.dr_mode)
 
 				# -- Saturation --
 				joint_values = [reaching_functions.saturate(j, -math.pi, math.pi) for j in joint_values]
@@ -311,12 +299,10 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 				r.body = np.zeros(self.num_joints,)
 
 			# -- Mapping --
-			#scale_custom = [s*slider_length/(2.0*math.pi) for s in self.retrieve_txt_g()]
-			#off_custom   = [s + r.height/2.0 for s in self.retrieve_txt_o()]
 			joint_values = reaching_functions.get_mapped_values(r.body, map, \
 																													rot, scale, off, \
 																													0, self.retrieve_txt_g(), self.retrieve_txt_o(),\
-																													joints_display_displacement)
+																													joints_display_displacement, dr_mode=self.dr_mode)
 
 			# -- Saturation --
 			joint_values = [reaching_functions.saturate(j, -math.pi, math.pi) for j in joint_values]
