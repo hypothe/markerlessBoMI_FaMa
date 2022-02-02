@@ -42,7 +42,6 @@ import copy
 
 pyautogui.PAUSE = 0.01  # set fps of cursor to 100Hz ish when mouse_enabled is True
 
-
 class SharedDetImage:
     def __init__(self):
         self.image_id = 0
@@ -119,6 +118,21 @@ class JointMapper(tk.Frame):
         self.lbl_calib.config(font=("Times", self.font_size))
         self.lbl_calib.grid(row=1, column=2, columnspan=2, pady=(20, 30), sticky='w')
 
+        # Calibration Duration
+        self.lbl_duration = Label(win, text='Duration(s): ', activebackground='#4682b4', bg='#abcdef')
+        self.lbl_duration.config(font=("Times", self.font_size))
+        self.lbl_duration.grid(row=1, column=4, columnspan=1, pady=(20, 30), sticky='w')
+
+        self.ent_duration_str = tk.StringVar()
+        self.ent_duration = Entry(win, width=20, textvariable=self.ent_duration_str)
+        self.ent_duration.config(font=("Times", self.font_size))
+        self.ent_duration.grid(row=1, column=5, pady=(20, 30), columnspan=1, sticky='w')
+
+        self.btn_duration = Button(win, text="Set", command=self.set_calib_time, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_duration.config(font=("Times", self.font_size))
+        self.btn_duration.grid(row=1, column=6, columnspan=1, padx=20, pady=(20, 30), sticky='nesw')
+
+
         # BoMI map button and checkboxes
         self.btn_map = Button(win, text="Calculate BoMI Map", command=self.train_map, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.btn_map["state"] = "disabled"
@@ -168,6 +182,15 @@ class JointMapper(tk.Frame):
         self.btn_close = Button(win, text="Close", command=win.destroy, bg="red", activebackground='grey')
         self.btn_close.config(font=("Times", self.font_size))
         self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+
+    def set_calib_time(self):
+        txt = self.ent_duration_str.get()
+        if not txt:
+            return
+        try:
+            self.calib_duration = int(txt)*1000
+        except ValueError:
+            pass
 
     def selectVideoFile(self):
         filetypes = (

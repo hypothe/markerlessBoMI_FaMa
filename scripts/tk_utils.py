@@ -85,3 +85,36 @@ class popupWindow(object):
 	def cleanup(self):
 		self.status = True
 		self.top.destroy()
+
+class HelpBoxCollection(object):
+	"""
+	Class managing 'Help' boxes.
+	Boxes can be added 
+	"""
+	def __init__(self, win):
+		self.labels = {}
+		self.win = win
+		self.font_size = 14
+		self.visible = False
+
+	def add_label(self, tk_obj, tk_name, tk_text):
+		if tk_name in self.labels.keys():
+			return
+		try:
+			info = tk_obj.grid_info()
+			self.labels[tk_name] = tk.Label(self.win, text=tk_text, activebackground='#4682b4', bg='#abcdef')
+			self.labels[tk_name].config(font=("Times", self.font_size))
+      self.labels[tk_name].grid(row=info["row"], column=info["column"]+info["columnspan"]+1, pady=(20, 30), sticky='w')
+		
+		# TODO: type exception
+		except:
+			pass
+	
+	def toggle_help(self):
+		self.visible = not self.visible
+
+		for lbl in self.label.values():
+			if (self.visible):
+				lbl.grid()
+			else:
+				lbl.grid_remove()
