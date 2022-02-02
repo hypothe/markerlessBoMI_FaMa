@@ -94,27 +94,44 @@ class HelpBoxCollection(object):
 	def __init__(self, win):
 		self.labels = {}
 		self.win = win
-		self.font_size = 14
+		self.font_size = 8
 		self.visible = False
+		self.max_txt_len = 30
 
-	def add_label(self, tk_obj, tk_name, tk_text):
+	def add_info(self, tk_obj, tk_name, tk_text):
 		# Overwrite if existent
 		#if tk_name in self.labels.keys():
 		#	return
+		#tk_text = '-\n'.join([tk_text[i:min(len(tk_text), i+self.max_txt_len)] for i in range(0, len(tk_text), self.max_txt_len)])
 		try:
 			info = tk_obj.grid_info()
-			self.labels[tk_name] = tk.Label(self.win, text=tk_text, activebackground='#4682b4', bg='#abcdef')
-			self.labels[tk_name].config(font=("Times", self.font_size))
-			self.labels[tk_name].grid(row=info["row"], column=info["column"]+info["columnspan"]+1, pady=(20, 30), sticky='w')
-		
 		except AttributeError:
 			pass
+		else:
+			wd = tk.Label(self.win, text=tk_text, bg='#abcdef', wraplength=300, justify=tk.LEFT, fg='#111111')
+			wd.config(font=("Times", self.font_size, 'normal', 'italic'))
+			wd.grid(row=info["row"], column=self._rightmost_free_column(), columnspan=2, pady=(20, 30), sticky='w')
+			wd.grid_remove() # do not display it on startup
+			wd.update()
+			self.labels[tk_name] = wd
 	
 	def toggle_help(self):
 		self.visible = not self.visible
 
-		for lbl in self.label.values():
+		for lbl in self.labels.values():
 			if (self.visible):
 				lbl.grid()
 			else:
 				lbl.grid_remove()
+	
+	def _rightmost_free_column(self, row=None, col=None):
+		col = col and col is not None or 0
+		for wd in self.win.grid_slaves(row=row):
+			try:
+				_col = wd.grid_info()["column"]
+				if _col >= col:
+					col = _col + wd.grid_info()["columnspan"]
+			except KeyError:
+				pass
+		
+		return col

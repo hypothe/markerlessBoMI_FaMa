@@ -66,6 +66,8 @@ class JointMapper(tk.Frame):
         tk.Frame.__init__(self, win, *args, **kwargs)
         self.parent = win
 
+        self.help_app = tk_utils.HelpBoxCollection(self.parent)
+
         self.app = CustomizationApplication(self)
 
         self.calibPath = os.path.dirname(os.path.abspath(__file__)) + "/../calib/"
@@ -114,7 +116,7 @@ class JointMapper(tk.Frame):
         self.calib_duration = 10000 #30000
 
         # Calibration time remaining
-        self.lbl_calib = Label(win, text='Calibration time: ', activebackground='#4682b4', bg='#abcdef')
+        self.lbl_calib = Label(win, text='Remaining time: ', activebackground='#4682b4', bg='#abcdef')
         self.lbl_calib.config(font=("Times", self.font_size))
         self.lbl_calib.grid(row=1, column=2, columnspan=2, pady=(20, 30), sticky='w')
 
@@ -179,8 +181,22 @@ class JointMapper(tk.Frame):
         self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 
         #############################################################
+        ### HELP ###
 
-        self.btn_close = Button(win, text="Close", command=win.destroy, bg="red", activebackground='grey')
+        self.help_app.add_info(self.btn_calib, "Calibration", "Move the selected joints around for {} seconds".format(self.calib_duration/1000))
+        self.help_app.add_info(self.btn_cam, "Camera", "Select an existing video instead of the webcam.\n(Red button reverts to the default webcam)")
+        self.help_app.add_info(self.btn_map, "Map", "Start the mapping process from the calibration data to the controlled variables")
+        self.help_app.add_info(self.btn_num_joints, "Joints", "Select which parts of your body will be tracked (min. 2)")
+        self.help_app.add_info(self.btn_custom, "Custom", "You will be able to test out the mapping and customize it as you prefer")
+        self.help_app.add_info(self.btn_start, "Start", "")
+
+        self.btn_help = Button(win, text="Help", command=self.help_app.toggle_help, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_help.config(font=("Times", self.font_size))
+        self.btn_help.grid(row=8, column=6, columnspan=1, padx=20, pady=(20, 30), sticky='nesw')
+
+        ### CLOSE ###
+
+        self.btn_close = Button(win, text="Close", command=win.destroy, bg="red", activebackground='#dd1122')
         self.btn_close.config(font=("Times", self.font_size))
         self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
 

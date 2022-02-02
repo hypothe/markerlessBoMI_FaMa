@@ -33,18 +33,29 @@ import socketio
 class BoMIMechanism(JointMapper):
 	def __init__(self, win, nmap_components, ns_server, *args, **kwargs):
 		JointMapper.__init__(self, win, nmap_components, *args, **kwargs)
-		
+
+		socket_str = "FAILED"
 
 		self.app = CustomizationApplicationMechanism(self)
 		# -- Socket handler -- #
 		try:
 			self.sio = JointUpdater(n_joints=nmap_components)
 			self.sio.connect(ns_server) # attempt connection
+			socket_str = "SUCCESSFUL"
+
 		except socketio.exceptions.ConnectionError:
 			print("NodeJS Server unreachable. Practice will be local only")
 			self.sio = None
 			# TODO: what does it mean "local only"?
+		
+		# set label for number of target remaining
+		self.lbl_skt = Label(win, text='Socket connection: '+socket_str, activebackground='#4682b4', bg='#abcdef', padx=50)
+		self.lbl_skt.config(font=("Times", self.font_size, 'normal', 'italic'))
+		self.lbl_skt.grid(row=6, column=0, pady=(20, 30), columnspan=2, sticky='w')
 
+		
+		self.help_app.add_info(self.btn_start, "Start", "If the socket is connected start controlling the robotic arm, together with the same sliders used for the Customization")
+		
 
 	def map_to_workspace(self, drPath, train_cu):
 		# retrieve transformation from generated values, to normalize 

@@ -50,10 +50,15 @@ class BoMIReaching(JointMapper):
         # keyboard
 
         self.check_kb = tk.BooleanVar()
-        self.check_kb1 = tk.Checkbutton(win, text="External Key", variable=self.check_kb, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.check_kb1 = tk.Checkbutton(win, text="External Keyboard", variable=self.check_kb, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
         self.check_kb1["state"]="disabled"
         self.check_kb1.config(font=("Times", self.font_size))
-        self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w')
+        self.check_kb1.grid(row=6, column=2, pady=(20, 30), sticky='w', columnspan=2)
+
+        ### HELP ###
+        self.help_app.add_info(self.btn_start, "Start", "Start the trial.")
+        self.help_app.add_info(self.check_m1, "Mouse", "Choose if you want to control you mouse instead of a drawn circle, optionally spawning a virtual keyboard")
+        ####
 
         self.refresh_rate = 30 # frames per second at max
         self.interframe_delay = 1/self.refresh_rate 
@@ -62,6 +67,9 @@ class BoMIReaching(JointMapper):
         mouse_enabled = self.check_mouse.get()
         if mouse_enabled:
             self.check_kb1["state"]= "normal"
+        else:
+            self.check_kb1["state"]= "disabled"
+            self.check_kb.set(False)
 
         print('Keyboard available.')
     
