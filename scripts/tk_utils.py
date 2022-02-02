@@ -5,7 +5,7 @@ import pyautogui
 # GLobal styling (CSS-like)
 GUIStyle = {
 		'font_main' : ("Times", 18),
-		'font_help' : ("Times", 8, 'normal', 'italic'),
+		'font_help' : ("Times", 10, 'normal', 'italic'),
 		'activeforeground' : 'blue',
 		'activebackground' : '#4682b4',
 		'bg' : '#abcdef',

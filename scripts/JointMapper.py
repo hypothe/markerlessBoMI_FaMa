@@ -158,7 +158,7 @@ class JointMapper(tk.Frame):
         self.calib_duration = 10000 #30000
 
         # Calibration time remaining
-        self.lbl_calib = Label(win, text='Remaining time: ',
+        self.lbl_calib = Label(win, text='Remaining time: '+str(self.calib_duration//1000),
                             activebackground=GUIStyle['activebackground'],
                             bg=GUIStyle['bg'])
         self.lbl_calib.config(font=GUIStyle['font_main'])
@@ -326,6 +326,8 @@ class JointMapper(tk.Frame):
             return
         try:
             self.calib_duration = int(txt)*1000
+            self.lbl_calib.configure(text='Remaining time: '+str(self.calib_duration//1000))
+            self.lbl_calib.update()
         except ValueError:
             pass
 
