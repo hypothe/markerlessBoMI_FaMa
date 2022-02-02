@@ -2,6 +2,29 @@ import tkinter as tk
 import math
 import pyautogui
 
+# GLobal styling (CSS-like)
+GUIStyle = {
+		'font_main' : ("Times", 18),
+		'font_help' : ("Times", 8, 'normal', 'italic'),
+		'activeforeground' : 'blue',
+		'activebackground' : '#4682b4',
+		'bg' : '#abcdef',
+		'btn_padx' : 20,
+		'btn_pady' : (20, 30),
+		'check_padx' : (0, 20),
+		'check_pady' : (20, 30),
+		'lbl_pady' : (20, 30),
+		'ent_pady' : (20, 30),
+		'txt_custom_pady' : (40, 20),
+		'lbl_custom_padx' : (40, 20),
+		'lbl_custom_pady' : (40, 20),
+		'btn_custom_padx' : (80, 0),
+		'btn_custom_pady' : (40, 20),
+		'close_bg' : '#dd1122',
+		'close_activebackground' : 'red',
+		'fg_help' : '#111111'
+}
+
 # Define some colors
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
@@ -37,18 +60,8 @@ def win_init(win_title):
 
 	win = tk.Tk()
 	win.title(win_title)
-	win['bg'] = '#ABCDEF'
-	#user32 = ctypes.windll.user32
-	#screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+	win['bg'] = GUIStyle['bg']
 
-	#screen_width = win.winfo_screenwidth()
-	#screen_height = win.winfo_screenheight()
-
-	#screensize = get_window_res_from_geometry(get_curr_screen_geometry())
-	
-	#screen_width = screensize[0]
-	#screen_height = screensize[1]
-	
 	screen_width, screen_height = pyautogui.size()
 
 	window_width = math.ceil(screen_width / 1.2)
@@ -108,9 +121,9 @@ class HelpBoxCollection(object):
 		except AttributeError:
 			pass
 		else:
-			wd = tk.Label(self.win, text=tk_text, bg='#abcdef', wraplength=300, justify=tk.LEFT, fg='#111111')
-			wd.config(font=("Times", self.font_size, 'normal', 'italic'))
-			wd.grid(row=info["row"], column=self._rightmost_free_column(), columnspan=2, pady=(20, 30), sticky='w')
+			wd = tk.Label(self.win, text=tk_text, bg=GUIStyle['bg'], wraplength=300, justify=tk.LEFT, fg=GUIStyle['fg_help'])
+			wd.config(font=GUIStyle['font_help'])
+			wd.grid(row=info["row"], column=self._rightmost_free_column(), columnspan=2, pady=GUIStyle['lbl_pady'], sticky='w')
 			wd.grid_remove() # do not display it on startup
 			wd.update()
 			self.labels[tk_name] = wd
@@ -135,3 +148,4 @@ class HelpBoxCollection(object):
 				pass
 		
 		return col
+

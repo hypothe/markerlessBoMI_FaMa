@@ -17,6 +17,7 @@ import scripts.cv_utils as cv_utils
 from scripts.JointMapper import JointMapper, CustomizationApplication
 from scripts.KeyBoard_Top import KeyBoard_Top
 import scripts.tk_utils as tk_utils
+from scripts.tk_utils import GUIStyle
 from scripts.tk_utils import BLACK, RED, GREEN, YELLOW, CURSOR
 from scripts.reaching import Reaching, write_practice_files
 from scripts.socket_JointUpdater import JointUpdater, SERVER_NAME
@@ -51,7 +52,9 @@ class BoMIMechanism(JointMapper):
 		# set label for number of target remaining
 		self.lbl_skt = Label(win, text='Socket connection: '+socket_str, activebackground='#4682b4', bg='#abcdef', padx=50)
 		self.lbl_skt.config(font=("Times", self.font_size, 'normal', 'italic'))
-		self.lbl_skt.grid(row=6, column=0, pady=(20, 30), columnspan=2, sticky='w')
+		self.lbl_skt.grid(row=6, column=0, columnspan=2,
+											pady=GUIStyle['lbl_pady'],
+											sticky='w')
 
 		
 		self.help_app.add_info(self.btn_start, "Start", "If the socket is connected start controlling the robotic arm, together with the same sliders used for the Customization")
@@ -196,7 +199,7 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		self.font_size = 18
 		self.nmap_component = nmap_component
 
-		# TODO: ask for the number of joints to send to Unity, for now stuck with 3
+		parent['bg'] = GUIStyle['bg']
 
 		self.lbl_g = []
 		self.txt_g = []
@@ -204,34 +207,65 @@ class CustomizationApplicationMechanism(CustomizationApplication):
 		self.txt_o = []
 
 		for i in range(self.nmap_component):
-			self.lbl_g.append(Label(parent, text='Gain {} '.format(i)))
-			self.lbl_g[-1].config(font=("Arial", self.font_size))
-			self.lbl_g[-1].grid(column=i, row=0, padx=(40, 20), pady=(40, 20), sticky='w')
+			self.lbl_g.append(Label(parent, text='Gain {} '.format(i),
+															activeforeground=GUIStyle['activeforeground'],
+															activebackground=GUIStyle['activebackground'],
+															bg=GUIStyle['bg']))
+			self.lbl_g[-1].config(font=GUIStyle['font_main'])
+			self.lbl_g[-1].grid(column=i, row=0,
+													padx=GUIStyle['lbl_custom_padx'],
+													pady=GUIStyle['lbl_custom_pady'],
+													sticky='w')
+
 			self.txt_g.append(Text(parent, width=10, height=1))
-			self.txt_g[-1].config(font=("Arial", self.font_size))
-			self.txt_g[-1].grid(column=i, row=1, pady=(40, 20))
+			self.txt_g[-1].config(font=GUIStyle['font_main'])
+			self.txt_g[-1].grid(column=i, row=1, pady=GUIStyle['txt_custom_pady'])
 			self.txt_g[-1].insert("1.0", '1')
 
-			self.lbl_o.append(Label(parent, text='Offset {} '.format(i)))
-			self.lbl_o[-1].config(font=("Arial", self.font_size))
-			self.lbl_o[-1].grid(column=i, row=2, padx=(40, 20), pady=(40, 20), sticky='w')
+			self.lbl_o.append(Label(parent, text='Offset {} '.format(i),
+															activeforeground=GUIStyle['activeforeground'],
+															activebackground=GUIStyle['activebackground'],
+															bg=GUIStyle['bg']))
+			self.lbl_o[-1].config(font=GUIStyle['font_main'])
+			self.lbl_o[-1].grid(column=i, row=2,
+													padx=GUIStyle['lbl_custom_padx'],
+													pady=GUIStyle['lbl_custom_pady'],
+													sticky='w')
+
 			self.txt_o.append(Text(parent, width=10, height=1))
-			self.txt_o[-1].config(font=("Arial", self.font_size))
-			self.txt_o[-1].grid(column=i, row=3, pady=(40, 20))
+			self.txt_o[-1].config(font=GUIStyle['font_main'])
+			self.txt_o[-1].grid(column=i, row=3, pady=GUIStyle['txt_custom_pady'])
 			self.txt_o[-1].insert("1.0", '0')
 
 
-		self.btn_save = Button(parent, text="Save parameters", command=self.save_parameters)
-		self.btn_save.config(font=("Arial", self.font_size))
-		self.btn_save.grid(column=5, row=1, sticky='nesw', padx=(80, 0), pady=(40, 20))
+		self.btn_save = Button(parent, text="Save parameters", command=self.save_parameters,
+															activeforeground=GUIStyle['activeforeground'],
+															activebackground=GUIStyle['activebackground'],
+															bg=GUIStyle['bg'])
+		self.btn_save.config(font=GUIStyle['font_main'])
+		self.btn_save.grid(column=5, row=1,
+											padx=GUIStyle['btn_custom_padx'],
+											pady=GUIStyle['btn_custom_pady'],
+											sticky='nesw')
 
-		self.btn_start = Button(parent, text="Start", command=self.customization)
-		self.btn_start.config(font=("Arial", self.font_size))
-		self.btn_start.grid(column=5, row=2, sticky='nesw', padx=(80, 0), pady=(40, 20))
+		self.btn_start = Button(parent, text="Start", command=self.customization,
+															activeforeground=GUIStyle['activeforeground'],
+															activebackground=GUIStyle['activebackground'],
+															bg=GUIStyle['bg'])
+		self.btn_start.config(font=GUIStyle['font_main'])
+		self.btn_start.grid(column=5, row=2,
+											padx=GUIStyle['btn_custom_padx'],
+											pady=GUIStyle['btn_custom_pady'],
+											sticky='nesw')
 
-		self.btn_close = Button(parent, text="Close", command=parent.destroy, bg='red')
-		self.btn_close.config(font=("Arial", self.font_size))
-		self.btn_close.grid(column=5, row=3, sticky='nesw', padx=(80, 0), pady=(40, 20))
+		self.btn_close = Button(parent, text="Close", command=parent.destroy,
+															activebackground=GUIStyle['close_activebackground'],
+															bg=GUIStyle['close_bg'])
+		self.btn_close.config(font=GUIStyle['font_main'])
+		self.btn_close.grid(column=5, row=3,
+											padx=GUIStyle['btn_custom_padx'],
+											pady=GUIStyle['btn_custom_pady'],
+											sticky='nesw')
 
 
 		cap = cv_utils.VideoCaptureOpt(video_camera_device)

@@ -27,6 +27,7 @@ from scripts.stopwatch import StopWatch
 from scripts.filter_butter_online import FilterButter3
 import scripts.reaching_functions as reaching_functions
 import scripts.tk_utils as tk_utils
+from scripts.tk_utils import GUIStyle
 import scripts.mediapipe_utils as mediapipe_utils
 # For controlling computer cursor
 import pyautogui
@@ -78,107 +79,215 @@ class JointMapper(tk.Frame):
         self.font_size = 18
         self.nmap_component = nmap_components
 
-        self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.btn_num_joints.config(font=("Times", self.font_size))
-        self.btn_num_joints.grid(row=0, column=0, columnspan=2, padx=20, pady=30, sticky='nesw')
+        self.btn_num_joints = Button(win, text="Select Joints", command=self.select_joints, 
+                                    activeforeground=GUIStyle['activeforeground'], 
+                                    activebackground=GUIStyle['activebackground'],
+                                    bg=GUIStyle['bg'])
+        self.btn_num_joints.config(font=GUIStyle['font_main'])
+        self.btn_num_joints.grid(row=0, column=0, columnspan=2, 
+                                padx=GUIStyle['btn_padx'],
+                                pady=GUIStyle['btn_pady'],
+                                sticky='nesw')
 
         # set checkboxes for selecting joints
         self.check_nose = BooleanVar()
-        self.check1 = Checkbutton(win, text="Nose", variable=self.check_nose, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check1.config(font=("Times", self.font_size))
-        self.check1.grid(row=0, column=2, padx=(0, 40), pady=30, sticky='w')
+        self.check1 = Checkbutton(win, text="Nose", variable=self.check_nose, 
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.check1.config(font=GUIStyle['font_main'])
+        self.check1.grid(row=0, column=2,
+                        padx=GUIStyle['check_padx'],
+                        pady=GUIStyle['check_pady'],
+                        sticky='w')
 
         self.check_eyes = BooleanVar()
-        self.check2 = Checkbutton(win, text="Eyes", variable=self.check_eyes, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check2.config(font=("Times", self.font_size))
-        self.check2.grid(row=0, column=3, padx=(0, 40), pady=30, sticky='w')
+        self.check2 = Checkbutton(win, text="Eyes", variable=self.check_eyes,
+                                    activeforeground=GUIStyle['activeforeground'],
+                                    activebackground=GUIStyle['activebackground'],
+                                    bg=GUIStyle['bg'])
+        self.check2.config(font=GUIStyle['font_main'])
+        self.check2.grid(row=0, column=3,
+                        padx=GUIStyle['check_padx'],
+                        pady=GUIStyle['check_pady'],
+                        sticky='w')
 
         self.check_shoulders = BooleanVar()
-        self.check3 = Checkbutton(win, text="Shoulders", variable=self.check_shoulders, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check3.config(font=("Times", self.font_size))
-        self.check3.grid(row=0, column=4, padx=(0, 30), pady=30, sticky='w')
+        self.check3 = Checkbutton(win, text="Shoulders", variable=self.check_shoulders,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.check3.config(font=GUIStyle['font_main'])
+        self.check3.grid(row=0, column=4,
+                        padx=GUIStyle['check_padx'],
+                        pady=GUIStyle['check_pady'],
+                        sticky='w')
 
         self.check_forefinger = BooleanVar()
-        self.check4 = Checkbutton(win, text="Right Forefinger",
-                                  variable=self.check_forefinger, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check4.config(font=("Times", self.font_size))
-        self.check4.grid(row=0, column=5, padx=(0, 20), pady=30, sticky='w')
+        self.check4 = Checkbutton(win, text="Right Forefinger", variable=self.check_forefinger,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.check4.config(font=GUIStyle['font_main'])
+        self.check4.grid(row=0, column=5, 
+                        padx=GUIStyle['check_padx'],
+                        pady=GUIStyle['check_pady'],
+                        sticky='w')
 
         self.check_fingers = BooleanVar()
-        self.check5 = Checkbutton(win, text="Fingers", variable=self.check_fingers, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check5.config(font=("Times", self.font_size))
-        self.check5.grid(row=0, column=6, padx=(0, 20), pady=30, sticky='nesw')
+        self.check5 = Checkbutton(win, text="Fingers", variable=self.check_fingers,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.check5.config(font=GUIStyle['font_main'])
+        self.check5.grid(row=0, column=6,
+                        padx=GUIStyle['check_padx'],
+                        pady=GUIStyle['check_pady'],
+                        sticky='nesw')
 
-        self.btn_calib = Button(win, text="Calibration", command=self.calibration, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_calib = Button(win, text="Calibration", command=self.calibration,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
         self.btn_calib["state"] = "disabled"
-        self.btn_calib.config(font=("Times", self.font_size))
-        self.btn_calib.grid(row=1, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_calib.config(font=GUIStyle['font_main'])
+        self.btn_calib.grid(row=1, column=0, columnspan=2,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
         self.calib_duration = 10000 #30000
 
         # Calibration time remaining
-        self.lbl_calib = Label(win, text='Remaining time: ', activebackground='#4682b4', bg='#abcdef')
-        self.lbl_calib.config(font=("Times", self.font_size))
-        self.lbl_calib.grid(row=1, column=2, columnspan=2, pady=(20, 30), sticky='w')
+        self.lbl_calib = Label(win, text='Remaining time: ',
+                            activebackground=GUIStyle['activebackground'],
+                            bg=GUIStyle['bg'])
+        self.lbl_calib.config(font=GUIStyle['font_main'])
+        self.lbl_calib.grid(row=1, column=2, columnspan=2,
+                            pady=GUIStyle['lbl_pady'],
+                            sticky='w')
 
         # Calibration Duration
-        self.lbl_duration = Label(win, text='Duration(s): ', activebackground='#4682b4', bg='#abcdef')
-        self.lbl_duration.config(font=("Times", self.font_size))
-        self.lbl_duration.grid(row=1, column=4, columnspan=1, pady=(20, 30), sticky='w')
+        self.lbl_duration = Label(win, text='Duration(s): ',
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.lbl_duration.config(font=GUIStyle['font_main'])
+        self.lbl_duration.grid(row=1, column=4, columnspan=1,
+                                pady=GUIStyle['lbl_pady'],
+                                sticky='w')
 
         self.ent_duration_str = tk.StringVar()
         self.ent_duration = Entry(win, width=5, textvariable=self.ent_duration_str)
-        self.ent_duration.config(font=("Times", self.font_size))
-        self.ent_duration.grid(row=1, column=5, pady=(20, 30), columnspan=1, sticky='w')
+        self.ent_duration.config(font=GUIStyle['font_main'])
+        self.ent_duration.grid(row=1, column=5, columnspan=1,
+                            pady=GUIStyle['ent_pady'],
+                            sticky='w')
         self.ent_duration.insert(INSERT, "10")
 
-        self.btn_duration = Button(win, text="Set", command=self.set_calib_time, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.btn_duration.config(font=("Times", self.font_size))
-        self.btn_duration.grid(row=1, column=6, columnspan=1, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_duration = Button(win, text="Set", command=self.set_calib_time,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
+        self.btn_duration.config(font=GUIStyle['font_main'])
+        self.btn_duration.grid(row=1, column=6, columnspan=1,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
 
 
         # BoMI map button and checkboxes
-        self.btn_map = Button(win, text="Calculate BoMI Map", command=self.train_map, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_map = Button(win, text="Calculate BoMI Map", command=self.train_map,
+                            activeforeground=GUIStyle['activeforeground'],
+                            activebackground=GUIStyle['activebackground'],
+                            bg=GUIStyle['bg'])
         self.btn_map["state"] = "disabled"
-        self.btn_map.config(font=("Times", self.font_size))
-        self.btn_map.grid(row=2, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_map.config(font=GUIStyle['font_main'])
+        self.btn_map.grid(row=2, column=0, columnspan=2,
+                        padx=GUIStyle['btn_padx'],
+                        pady=GUIStyle['btn_pady'],
+                        sticky='nesw')
 
         self.check_alg = IntVar()
 
         # self.check_pca = BooleanVar()
-        self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check_pca1.config(font=("Times", self.font_size))
-        self.check_pca1.grid(row=2, column=2, padx=(0, 20), pady=(20, 30), sticky='w')
+        self.check_pca1 = Radiobutton(win, text="PCA", variable=self.check_alg, value=0,
+                                     activeforeground=GUIStyle['activeforeground'],
+                                     activebackground=GUIStyle['activebackground'],
+                                     bg=GUIStyle['bg'])
+        self.check_pca1.config(font=GUIStyle['font_main'])
+        self.check_pca1.grid(row=2, column=2,
+                            padx=GUIStyle['check_padx'],
+                            pady=GUIStyle['check_pady'],
+                            sticky='w')
 
         # self.check_ae = BooleanVar()
-        self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check_ae1.config(font=("Times", self.font_size))
-        self.check_ae1.grid(row=2, column=3, padx=(0, 20), pady=(20, 30), sticky='w')
+        self.check_ae1 = Radiobutton(win, text="AE", variable=self.check_alg, value=1,
+                                    activeforeground=GUIStyle['activeforeground'],
+                                    activebackground=GUIStyle['activebackground'],
+                                    bg=GUIStyle['bg'])
+        self.check_ae1.config(font=GUIStyle['font_main'])
+        self.check_ae1.grid(row=2, column=3,
+                            padx=GUIStyle['check_padx'],
+                            pady=GUIStyle['check_pady'],
+                            sticky='w')
 
         # self.check_vae = BooleanVar()
-        self.check_vae1 = Radiobutton(win, text="VAE", variable=self.check_alg, value=2, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.check_vae1.config(font=("Times", self.font_size))
-        self.check_vae1.grid(row=2, column=4, pady=(20, 30), sticky='w')
+        self.check_vae1 = Radiobutton(win, text="VAE", variable=self.check_alg, value=2,
+                                    activeforeground=GUIStyle['activeforeground'],
+                                    activebackground=GUIStyle['activebackground'],
+                                    bg=GUIStyle['bg'])
+        self.check_vae1.config(font=GUIStyle['font_main'])
+        self.check_vae1.grid(row=2, column=4,
+                            padx=GUIStyle['check_padx'],
+                            pady=GUIStyle['check_pady'],
+                            sticky='w')
 
-        self.btn_custom = Button(win, text="Customization", command=self.customization, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_custom = Button(win, text="Customization", command=self.customization,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
         self.btn_custom["state"] = "disabled"
-        self.btn_custom.config(font=("Times", self.font_size))
-        self.btn_custom.grid(row=3, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_custom.config(font=GUIStyle['font_main'])
+        self.btn_custom.grid(row=3, column=0, columnspan=2,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
 
-        self.btn_start = Button(win, text="Practice", command=self.start, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
+        self.btn_start = Button(win, text="Practice", command=self.start,
+                                activeforeground=GUIStyle['activeforeground'],
+                                activebackground=GUIStyle['activebackground'],
+                                bg=GUIStyle['bg'])
         self.btn_start["state"] = "disabled"
-        self.btn_start.config(font=("Times", self.font_size))
-        self.btn_start.grid(row=4, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_start.config(font=GUIStyle['font_main'])
+        self.btn_start.grid(row=4, column=0, columnspan=2,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
 
         # Camera video input
-        self.btn_cam = Button(win, text='Ext. Video Source', command=self.selectVideoFile,activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.btn_cam.config(font=("Times", self.font_size))
-        self.btn_cam.grid(row=5, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_cam = Button(win, text='Ext. Video Source', command=self.selectVideoFile,
+                            activeforeground=GUIStyle['activeforeground'],
+                            activebackground=GUIStyle['activebackground'],
+                            bg=GUIStyle['bg'])
+        self.btn_cam.config(font=GUIStyle['font_main'])
+        self.btn_cam.grid(row=5, column=0, columnspan=2,
+                        padx=GUIStyle['btn_padx'],
+                        pady=GUIStyle['btn_pady'],
+                        sticky='nesw')
+
         self.ent_cam = Entry(win, width=30)
-        self.ent_cam.config(font=("Times", self.font_size))
-        self.ent_cam.grid(row=5, column=2, pady=(20, 30), columnspan=3, sticky='w')
-        self.btn_camClear = Button(win, text='Camera Video Source', command=self.clearVideoSource, bg='red', activebackground='grey')
-        self.btn_camClear.config(font=("Times", self.font_size))
-        self.btn_camClear.grid(row=5, column=5, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.ent_cam.config(font=GUIStyle['font_main'])
+        self.ent_cam.grid(row=5, column=2, columnspan=3,
+                        pady=GUIStyle['ent_pady'],
+                        sticky='w')
+                        
+        self.btn_camClear = Button(win, text='Camera Video Source', command=self.clearVideoSource,
+                                activebackground=GUIStyle['close_activebackground'],
+                                bg=GUIStyle['close_bg'])
+        self.btn_camClear.config(font=GUIStyle['font_main'])
+        self.btn_camClear.grid(row=5, column=5, columnspan=2,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
 
         #############################################################
         ### HELP ###
@@ -190,15 +299,26 @@ class JointMapper(tk.Frame):
         self.help_app.add_info(self.btn_custom, "Custom", "You will be able to test out the mapping and customize it as you prefer")
         self.help_app.add_info(self.btn_start, "Start", "")
 
-        self.btn_help = Button(win, text="Help", command=self.help_app.toggle_help, activeforeground='blue', activebackground='#4682b4', bg='#abcdef')
-        self.btn_help.config(font=("Times", self.font_size))
-        self.btn_help.grid(row=8, column=6, columnspan=1, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_help = Button(win, text="Help", command=self.help_app.toggle_help,
+                            activeforeground=GUIStyle['activeforeground'],
+                            activebackground=GUIStyle['activebackground'],
+                            bg=GUIStyle['bg'])
+        self.btn_help.config(font=GUIStyle['font_main'])
+        self.btn_help.grid(row=8, column=6, columnspan=1,
+                        padx=GUIStyle['btn_padx'],
+                        pady=GUIStyle['btn_pady'],
+                        sticky='nesw')
 
         ### CLOSE ###
 
-        self.btn_close = Button(win, text="Close", command=win.destroy, bg="red", activebackground='#dd1122')
-        self.btn_close.config(font=("Times", self.font_size))
-        self.btn_close.grid(row=8, column=0, columnspan=2, padx=20, pady=(20, 30), sticky='nesw')
+        self.btn_close = Button(win, text="Close", command=win.destroy,
+                                activebackground=GUIStyle['close_activebackground'],
+                                bg=GUIStyle['close_bg'])
+        self.btn_close.config(font=GUIStyle['font_main'])
+        self.btn_close.grid(row=8, column=0, columnspan=2,
+                            padx=GUIStyle['btn_padx'],
+                            pady=GUIStyle['btn_pady'],
+                            sticky='nesw')
 
     def set_calib_time(self):
         txt = self.ent_duration_str.get()
