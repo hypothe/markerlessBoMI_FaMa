@@ -29,5 +29,6 @@ fi
 
 $DOCKER_COMMAND \
     --privileged -it --rm ${DOCKER_ENV} \
+    -p 8081:4242 \
     -v /tmp/.X11-unix:/tmp/.X11-unix --network=host  \
     hypothe/bomi_fama
