@@ -38,4 +38,4 @@ $DOCKER_COMMAND \
  --env DISPLAY=$DISPLAY \
  --env "PULSE_SERVER=${PULSE_SERVER}" \
  ${MOUNT_WSLG} \
- hypothe/bomi_fama:vae
+ hypothe/bomi_fama
