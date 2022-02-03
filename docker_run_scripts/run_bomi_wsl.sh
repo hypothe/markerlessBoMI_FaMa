@@ -33,7 +33,7 @@ else
 fi
 
 $DOCKER_COMMAND \
- -dit --rm \
+ -it --rm \
  --privileged \
  --env DISPLAY=$DISPLAY \
  --env "PULSE_SERVER=${PULSE_SERVER}" \
