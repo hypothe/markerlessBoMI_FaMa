@@ -4,6 +4,10 @@
 
 xhost +local:docker
 
+NET_NAME="bomi-fama"
+
+docker network inspect ${NET_NAME} --format {{.Id}} 2>/dev/null || docker network create --driver bridge ${NET_NAME}
+
 DOCKER_ENV="--env DISPLAY=$DISPLAY --env XDG_RUNTIME_DIR --env QT_X11_NO_MITSHM=1"
 
 
@@ -28,7 +32,9 @@ else
 fi
 
 $DOCKER_COMMAND \
-    --privileged -it --rm ${DOCKER_ENV} \
-    -p 8081:4242 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix --network=host  \
-    hypothe/bomi_fama
+  --privileged -it --rm \
+  ${DOCKER_ENV} \
+  --network=${NET_NAME} \
+  --env BOMI_SERVER_NAME=bomi_server \
+  -v /tmp/.X11-unix:/tmp/.X11-unix --network=host  \
+  hypothe/bomi_fama

@@ -1,14 +1,16 @@
 #!/bin/bash
 
 # This script launches the container with the necessary flags from the WSL inside a Windows machine
+NET_NAME="bomi-fama"
 
-DISPLAY=$(grep nameserver /etc/resolv.conf | awk '{print $2}'):0.0
+docker network inspect ${NET_NAME} --format {{.Id}} 2>/dev/null || docker network create --driver bridge ${NET_NAME}
 
 MOUNT_WSLG=""
 
 if [[ -d  /mnt/wslg ]]; then
-	MOUNT_WSLG="-v /mnt/wslg/:/mnt/wslg/"
+	MOUNT_WSLG="-v /mnt/wslg/:/mnt/wslg/ --env XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR} -v /tmp/.X11-unix:/tmp/.X11-unix"
 else
+  DISPLAY=$(grep nameserver /etc/resolv.conf | awk '{print $2}'):0.0
 	echo "Running docker without wslg, you need an external xServer on Windows in order to see GUI windows."
 fi
 
@@ -33,10 +35,11 @@ else
 fi
 
 $DOCKER_COMMAND \
- -it --rm \
- --privileged \
- --env DISPLAY=$DISPLAY \
- --env "PULSE_SERVER=${PULSE_SERVER}" \
- ${MOUNT_WSLG} \
--p 8081:4242 \
- hypothe/bomi_fama
+  -it --rm \
+  --privileged \
+  --env DISPLAY=$DISPLAY \
+  --env "PULSE_SERVER=${PULSE_SERVER}" \
+  ${MOUNT_WSLG} \
+  --network=${NET_NAME} \
+  --env BOMI_SERVER_NAME=bomi_server \
+  hypothe/bomi_fama
