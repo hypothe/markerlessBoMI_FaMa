@@ -80,7 +80,7 @@ def update_cursor_position_custom(body, map, rot, scale, off, dr_mode=""):
     """
     Wrapper for compatibility
     """
-    return get_mapped_values(body, map, rot, scale, off, dr_mode)
+    return get_mapped_values(body, map, rot, scale, off, dr_mode=dr_mode)
 
 def rotate_xy_RH(xy, rot):
     tmp_x, tmp_y = xy[0], xy[1]
@@ -96,7 +96,7 @@ def update_cursor_position(body, map, rot_ae, scale_ae, off_ae, rot_custom, scal
     """
     Wrapper for compatibility
     """
-    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, (win_width, win_height), dr_mode)
+    return get_mapped_values(body, map, rot_ae, scale_ae, off_ae, rot_custom, scale_custom, off_custom, p_range=(win_width, win_height), dr_mode=dr_mode)
 
 
 def get_mapped_values(body, map, rot1, scale1, off1, rot2=0, scale2=1, off2=0, p_range=None, dr_mode=""):
