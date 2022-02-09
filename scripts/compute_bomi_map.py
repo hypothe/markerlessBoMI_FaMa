@@ -159,14 +159,14 @@ class Autoencoder(object):
             history = autoencoder.fit(x=x_train,
                                       y=x_train,
                                       epochs=self._steps, verbose=0,
-                                      batch_size=len(x_train),
+                                      batch_size=math.ceil(len(x_train)/5),
                                       callbacks=[cp_callback, loss_callback])
         else:
             # Start training of the network
             history = autoencoder.fit(x=x_train,
                                       y=x_train,
                                       epochs=self._steps, verbose=0,
-                                      batch_size=len(x_train),
+                                      batch_size=math.ceil(len(x_train)/5),
                                       callbacks=[loss_callback])
 
         # Get network prediction
@@ -346,22 +346,25 @@ class Autoencoder(object):
         h = Dense(self._h1, activation=self._activation, name="intermediate_encoder")(x)
         h = Dense(self._h1, activation=self._activation, name="latent_encoder")(h)
         z_mean = Dense(self._cu, name="mu_encoder")(h)
-        z_log_sigma = Dense(self._cu, name="sigma_encoder")(h)
+        z_log_var = Dense(self._cu, name="sigma_encoder")(h)
 
         # Sampling trick from latent space
         def sampling(args):
-            z_mean, z_log_sigma = args
+            z_mean, z_log_var = args
             batch = tf.shape(z_mean)[0]
             dim = tf.shape(z_mean)[1]
-            std_dev = 0.1
+            std_dev = 1.0
             epsilon = K.random_normal(shape=(batch, dim),
                                       mean=0., stddev=std_dev)
-            return z_mean + K.exp(z_log_sigma / 2.0) * epsilon
 
-        z = Lambda(sampling)([z_mean, z_log_sigma])
+            z = z_mean + K.exp(z_log_var / 2.0) * epsilon
+
+            return z
+
+        z = Lambda(sampling)([z_mean, z_log_var])
 
         # Create encoder
-        encoder = keras.Model(x, [z_mean, z_log_sigma, z], name='encoder')
+        encoder = keras.Model(x, [z_mean, z_log_var, z], name='encoder')
 
         encoder.summary()
 
@@ -387,24 +390,23 @@ class Autoencoder(object):
             reconstruction_loss = mse(input, output)
 
             # Compute the KL Divergence regularization term
-            kl_loss = - 0.5 * K.sum(1 + z_log_sigma - K.square(z_mean) - K.exp(z_log_sigma), axis=-1)
+            kl_loss = - 0.5 * K.sum(1 + z_log_var - K.square(z_mean) - K.exp(z_log_var), axis=-1)
 
             # Return the average loss over all images in batch
-            total_loss = (reconstruction_loss + 0.0001 * kl_loss)
+            total_loss = (reconstruction_loss + kl_loss)
             return total_loss
 
         vae.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
         encoder.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
         decoder.compile(optimizer=Adam(learning_rate=self._alpha), loss=vae_loss)
-        #vae.compile(optimizer=Adam(learning_rate=self._alpha))
 
         # It does not matter the type, but show us the vae
 
         # Harvard
         history = vae.fit(x=x_train,  y=x_train,
                 shuffle=True,
-                epochs=self._steps, verbose=0,
-                batch_size=8, callbacks=[loss_callback])
+                epochs=self._steps , verbose=0,
+                batch_size=math.ceil(len(x_train)/5), callbacks=[loss_callback])
                 #validation_data=(val_x, None)
 
         # Get network prediction
@@ -657,7 +659,7 @@ def train_vae(calibPath, drPath, n_map_component):
 
     # normalize latent space to fit the monitor coordinates
     # Applying rotation
-    plot_vae = True
+    plot_vae = False
     if plot_vae:
         rot = 0
         train_cu_plot = reaching_functions.rotate_xy_RH(train_cu, rot)
@@ -708,6 +710,7 @@ def load_bomi_map(dr_mode, drPath):
         ws.append(pd.read_csv(drPath + 'weights2.txt', sep=' ', header=None).values)
         ws.append(pd.read_csv(drPath + 'weights3.txt', sep=' ', header=None).values)
         ws.append(pd.read_csv(drPath + 'weights4.txt', sep=' ', header=None).values)
+        ws.append(pd.read_csv(drPath + 'weights5.txt', sep=' ', header=None).values)
         bs.append(pd.read_csv(drPath + 'biases1.txt', sep=' ', header=None).values)
         bs[0] = bs[0].reshape((bs[0].size,))
         bs.append(pd.read_csv(drPath + 'biases2.txt', sep=' ', header=None).values)
@@ -716,6 +719,8 @@ def load_bomi_map(dr_mode, drPath):
         bs[2] = bs[2].reshape((bs[2].size,))
         bs.append(pd.read_csv(drPath + 'biases4.txt', sep=' ', header=None).values)
         bs[3] = bs[3].reshape((bs[3].size,))
+        bs.append(pd.read_csv(drPath + 'biases4.txt', sep=' ', header=None).values)
+        bs[4] = bs[4].reshape((bs[4].size,))
 
         map = (ws, bs)
 
@@ -753,34 +758,5 @@ def read_transform(drPath, spec):
     off = pd.read_csv(drPath + 'offset_'+spec+'.txt', sep=' ', header=None).values
     off = np.reshape(off, (off.shape[0],))
     return rot, scale, off
-
-class KLDivergenceLayer(Layer):
-
-    """ Identity transform layer that adds KL divergence
-    to the final model loss.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.is_placeholder = True
-        super(KLDivergenceLayer, self).__init__(*args, **kwargs)
-
-    def call(self, inputs):
-
-        mu, log_var = inputs
-
-        kl_batch = - .5 * K.sum(1 + log_var -
-                                K.square(mu) -
-                                K.exp(log_var), axis=-1)
-
-        self.add_loss(K.mean(kl_batch), inputs=inputs)
-
-        return inputs
-
-def nll(y_true, y_pred):
-    """ Negative log likelihood (Bernoulli). """
-
-    # keras.losses.binary_crossentropy gives the mean
-    # over the last axis. we require the sum
-    return K.sum(K.binary_crossentropy(y_true, y_pred), axis=-1)
 
 
