@@ -101,7 +101,7 @@ class BoMIMechanism(JointMapper):
 	@outer_control_loop()
 	def start_mechanism_control(self, r=None, map=None, filter_curs=None, rot=0, scale=1, off=0):
 			
-			render_frame = False
+			render_frame = True
 
 			_, scale_custom, off_custom = compute_bomi_map.read_transform(self.drPath, "custom")
 			
@@ -109,7 +109,12 @@ class BoMIMechanism(JointMapper):
 			window_width, window_height = math.ceil(screen_width / 2), math.ceil(screen_height / 2)
 			cv_width, cv_height = math.ceil(screen_width / 4), math.ceil(screen_height / 4)
 			
-			win_name = "Mechanism Control"
+			if render_frame:
+				win_name = "Mechanism Control"
+				cv2.namedWindow(win_name)
+				cv2.resizeWindow(win_name, int(cv_width), (int(cv_height)))
+				cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+
 			
 			pygame.init()
 
@@ -147,8 +152,7 @@ class BoMIMechanism(JointMapper):
 
 					frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 					cv2.imshow(win_name, frame)
-					cv2.resizeWindow(win_name, int(cv_width), (int(cv_height)))
-					cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+					
 					
 					if cv2.waitKey(1) == 27:
 						break  # esc to quit

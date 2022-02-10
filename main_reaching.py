@@ -171,6 +171,9 @@ class BoMIReaching(JointMapper):
 		print("cursor control thread is about to start...")
 
 		win_name = "Cursor Control"
+		cv2.namedWindow(win_name)
+		cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+
 
 		pyautogui.FAILSAFE = False
 		is_mouse_down = False
@@ -225,7 +228,6 @@ class BoMIReaching(JointMapper):
 
 					frame = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_RGB2BGR)
 					cv2.imshow(win_name, frame)
-					cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
 
 					assert isinstance(right_ratio, object)
 
