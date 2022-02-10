@@ -170,16 +170,18 @@ class BoMIReaching(JointMapper):
 
 		print("cursor control thread is about to start...")
 
-		win_name = "Cursor Control"
-		cv2.namedWindow(win_name)
-		cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
-
+		
 
 		pyautogui.FAILSAFE = False
 		is_mouse_down = False
 
 		screen_width, screen_height = pyautogui.size()
 		window_width = math.ceil(screen_width / 2)
+
+		win_name = "Cursor Control"
+		cv2.namedWindow(win_name)
+		cv2.moveWindow(win_name,  int(window_width + window_width / 4), 0)
+
 
 		# -------- Main Program Loop -----------
 		while not r.is_terminated:
