@@ -36,5 +36,5 @@ $DOCKER_COMMAND \
   ${DOCKER_ENV} \
   --network=${NET_NAME} \
   --env BOMI_SERVER_NAME=bomi_server \
-  -v /tmp/.X11-unix:/tmp/.X11-unix --network=host  \
+  -v /tmp/.X11-unix:/tmp/.X11-unix  \
   hypothe/bomi_fama
